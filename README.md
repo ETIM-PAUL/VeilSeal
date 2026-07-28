@@ -1,2 +1,2 @@
 # VeilPay
-VeilPay is a confidential payments and treasury platform built on Flare Confidential Compute. It supports both person-to-person transfers and group/DAO treasury management - letting users send money or pay contributors without exposing amounts, balances, or identities on-chain, verified via a trusted execution environment.
+VeilPay is a confidential payments platform built on Flare Confidential Compute, with three core modules: Group/DAO Treasury (private contributions and payouts), Personal Transfers (P2P payments with hidden amounts and identities), and Closed Bids (sealed-bid auctions/tenders) — all verified via a trusted execution environment.

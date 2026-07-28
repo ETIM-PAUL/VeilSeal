@@ -1,26 +1,26 @@
 export const dashboardStats = [
 
     {
-    title:"Total Treasury",
-    value:"£52,348",
+    title:"Treasuries",
+    value:"4",
     description:"Across 3 confidential vaults"
     },
     
     {
-    title:"Private Transfers",
-    value:"143",
+    title:"Confidential Operations",
+    value:"146",
     description:"Processed this month"
     },
     
     {
-    title:"Open Bids",
-    value:"8",
+    title:"Pending TEE Jobs",
+    value:"7",
     description:"Currently active"
     },
     
     {
-    title:"Members",
-    value:"42",
+    title:"Attestations",
+    value:"139",
     description:"Across organizations"
     }
     
@@ -58,3 +58,36 @@ export const dashboardStats = [
     }
     
     ];
+
+    export const treasuries = [
+        {
+          id: 1,
+          name: "Engineering DAO",
+          type: "DAO",
+          balance: "£21,480",
+          members: 12,
+          pending: 4,
+          activity: "2 hours ago",
+          status: "Active"
+        },
+        {
+          id: 2,
+          name: "Marketing Treasury",
+          type: "Department",
+          balance: "£9,210",
+          members: 7,
+          pending: 1,
+          activity: "Yesterday",
+          status: "Active"
+        },
+        {
+          id: 3,
+          name: "Community Grants",
+          type: "Community",
+          balance: "£15,920",
+          members: 18,
+          pending: 2,
+          activity: "5 mins ago",
+          status: "Active"
+        }
+      ];

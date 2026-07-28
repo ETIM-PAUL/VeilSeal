@@ -1,28 +1,45 @@
 import Sidebar from "../components/layout/Sidebar";
 import Navbar from "../components/layout/Navbar";
 
+
 import {
-  AppShell
+AppShell
 } from "@mantine/core";
 
 
-export default function AppLayout({
-children
-}) {
+import {
+useDisclosure
+} from "@mantine/hooks";
+
+
+export default function AppLayout({children}){
+
+
+const [
+opened,
+{toggle}
+]=useDisclosure();
+
 
 
 return (
 
 <AppShell
 
+
 navbar={{
- width:260,
- breakpoint:"sm"
+width:260,
+breakpoint:"sm",
+collapsed:{
+mobile:!opened
+}
 }}
 
+
 header={{
- height:70
+height:70
 }}
+
 
 padding="md"
 
@@ -39,7 +56,13 @@ padding="md"
 
 <AppShell.Header>
 
-<Navbar/>
+<Navbar
+
+opened={opened}
+
+toggle={toggle}
+
+/>
 
 </AppShell.Header>
 
@@ -50,6 +73,7 @@ padding="md"
 {children}
 
 </AppShell.Main>
+
 
 
 </AppShell>

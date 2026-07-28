@@ -1,6 +1,8 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
-
+import {
+  theme
+ } from "./theme";
 import {
   MantineProvider
 } from "@mantine/core";
@@ -21,15 +23,7 @@ ReactDOM.createRoot(
 
 <MantineProvider
 
-theme={{
-  primaryColor:"blue",
-
-  defaultRadius:"md",
-
-  fontFamily:
-  "Inter, sans-serif"
-
-}}
+theme={theme}
 
 >
 

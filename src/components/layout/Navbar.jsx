@@ -1,23 +1,25 @@
 import {
-
     Group,
     TextInput,
     Avatar,
     Menu,
-    ActionIcon
-    
+    ActionIcon,
+    Burger
     } from "@mantine/core";
     
     
     import {
-    
     LuSearch,
     LuBell
-    
     } from "react-icons/lu";
     
     
-    export default function Navbar(){
+    import {
+    useDisclosure
+    } from "@mantine/hooks";
+    
+    
+    export default function Navbar({opened, toggle}){
     
     
     return (
@@ -33,26 +35,39 @@ import {
     >
     
     
+    <Group>
+    
+    
+    <Burger
+    
+    opened={opened}
+    
+    onClick={toggle}
+    
+    hiddenFrom="sm"
+    
+    />
+    
+    
     <TextInput
     
     placeholder="Search VeilPay"
     
     leftSection={<LuSearch/>}
     
-    w={320}
+    w={300}
     
     />
+    
+    
+    </Group>
     
     
     
     <Group>
     
     
-    <ActionIcon
-    
-    variant="subtle"
-    
-    >
+    <ActionIcon variant="subtle">
     
     <LuBell/>
     
@@ -67,9 +82,9 @@ import {
     
     <Avatar
     
-    radius="xl"
-    
     color="blue"
+    
+    radius="xl"
     
     >
     
@@ -87,11 +102,9 @@ import {
     Profile
     </Menu.Item>
     
-    
     <Menu.Item>
     Wallet
     </Menu.Item>
-    
     
     </Menu.Dropdown>
     

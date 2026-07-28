@@ -19,13 +19,13 @@ import {
    
    <Route path="/" element={<Dashboard/>}/>
    
-   <Route path="/treasury" element={<Treasury/>}/>
+   <Route path="/treasuries" element={<Treasury/>}/>
    
    <Route path="/transfers" element={<Transfers/>}/>
    
    <Route path="/bids" element={<Bids/>}/>
    
-   <Route path="/activity" element={<Activity/>}/>
+   <Route path="/operations" element={<Activity/>}/>
    
    
    

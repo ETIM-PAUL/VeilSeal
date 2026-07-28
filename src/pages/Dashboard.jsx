@@ -64,10 +64,8 @@ import {
     
     
     <Text c="dimmed">
-    
-    Manage confidential payments powered by Flare.
-    
-    </Text>
+Private payments, treasury management, and sealed bidding powered by Flare Confidential Compute.
+</Text>
     
     
     </div>

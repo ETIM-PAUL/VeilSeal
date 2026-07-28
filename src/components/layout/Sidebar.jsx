@@ -35,13 +35,13 @@ import {
     },
     
     {
-    name:"Treasury",
-    path:"/treasury",
+    name:"Treasuries",
+    path:"/treasuries",
     icon:LuWallet
     },
     
     {
-    name:"Transfers",
+    name:"Private Transfers",
     path:"/transfers",
     icon:LuArrowLeftRight
     },
@@ -53,15 +53,9 @@ import {
     },
     
     {
-    name:"Activity",
-    path:"/activity",
+    name:"Operations",
+    path:"/operations",
     icon:LuActivity
-    },
-    
-    {
-    name:"Settings",
-    path:"/settings",
-    icon:LuSettings
     }
     
     ];

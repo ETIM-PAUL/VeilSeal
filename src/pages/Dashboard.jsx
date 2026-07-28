@@ -174,7 +174,7 @@ Private payments, treasury management, and sealed bidding powered by Flare Confi
     
     >
     
-    Create Treasury
+    New Treasury
     
     </Button>
     
@@ -192,7 +192,7 @@ Private payments, treasury management, and sealed bidding powered by Flare Confi
     
     >
     
-    Send Transfer
+    Private Transfer
     
     </Button>
     
@@ -210,7 +210,7 @@ Private payments, treasury management, and sealed bidding powered by Flare Confi
     
     >
     
-    Create Bid
+    New Sealed Bid
     
     </Button>
     

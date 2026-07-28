@@ -5,7 +5,8 @@ import {
    
    
    import Dashboard from "../pages/Dashboard";
-   import Treasury from "../pages/Treasury";
+   import Treasury from "../pages/Treasuries";
+   import TreasuryDetails from "../pages/TreasuryDetails";
    import Transfers from "../pages/Transfers";
    import Bids from "../pages/Bids";
    import Activity from "../pages/Activity";
@@ -20,6 +21,7 @@ import {
    <Route path="/" element={<Dashboard/>}/>
    
    <Route path="/treasuries" element={<Treasury/>}/>
+   <Route path="/treasuries/:id" element={<TreasuryDetails/>}/>
    
    <Route path="/transfers" element={<Transfers/>}/>
    

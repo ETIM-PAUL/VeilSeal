@@ -10,6 +10,9 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@emotion/react": "^11.14.0",
+    "@mantine/core": "^9.5.0",
+    "@mantine/hooks": "^9.5.0",
     "@tailwindcss/vite": "^4.3.3",
     "framer-motion": "^12.43.0",
     "react": "^19.2.7",

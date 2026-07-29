@@ -5,7 +5,7 @@ import {
   
   export const theme = createTheme({
   
-    primaryColor: "blue",
+    primaryColor: "green",
   
     fontFamily:
       "Inter, sans-serif",

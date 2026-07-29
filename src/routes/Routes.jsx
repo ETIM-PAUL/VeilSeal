@@ -23,7 +23,7 @@ import {
    <Route path="/treasuries" element={<Treasury/>}/>
    <Route path="/treasuries/:id" element={<TreasuryDetails/>}/>
    
-   <Route path="/transfers" element={<Transfers/>}/>
+   <Route path="/p2p-transfers" element={<Transfers/>}/>
    
    <Route path="/bids" element={<Bids/>}/>
    

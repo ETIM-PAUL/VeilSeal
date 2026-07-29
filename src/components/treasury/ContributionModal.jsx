@@ -38,7 +38,6 @@ export default function ContributionModal({
 
     const [token, setToken] = useState("FLR");
 
-    const [reference, setReference] = useState("");
 
     const next = () => setActive((v) => v + 1);
 
@@ -88,20 +87,6 @@ export default function ContributionModal({
 
                         />
 
-                        <TextInput
-
-                            label="Reference"
-
-                            placeholder="Optional"
-
-                            value={reference}
-
-                            onChange={(e)=>
-                                setReference(e.target.value)
-                            }
-
-                        />
-
                         <Button
                             mt="md"
                             onClick={next}
@@ -131,18 +116,6 @@ export default function ContributionModal({
 
                             <Text fw={700}>
                                 {amount} {token}
-                            </Text>
-
-                        </Group>
-
-                        <Group justify="space-between">
-
-                            <Text>Reference</Text>
-
-                            <Text>
-
-                                {reference || "—"}
-
                             </Text>
 
                         </Group>

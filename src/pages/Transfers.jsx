@@ -1,22 +1,87 @@
-import {Title, Text} from "@mantine/core";
+import { useMemo, useState } from "react";
+
+import {
+  Button,
+  Group,
+  Stack,
+  Text,
+  TextInput,
+  Title,
+} from "@mantine/core";
+
+import {
+  LuArrowUpRight,
+  LuSearch,
+} from "react-icons/lu";
+
+import TransferStats from "../components/transfers/TransferStats";
+import TransferHistory from "../components/transfers/TransferHistory";
+
+import {
+  transferStats,
+  transfers,
+} from "../data/transfers";
+import { useDisclosure } from "@mantine/hooks";
+import NewTransferDrawer from "../components/transfers/NewTransferDrawer";
 
 
-export default function Transfers(){
+export default function PrivateTransfers() {
+  const [search, setSearch] = useState("");
+  const [opened, { open, close }] =
+  useDisclosure(false);
+  const filtered = useMemo(() => {
+    return transfers.filter((item) =>
+      item.recipient
+        .toLowerCase()
+        .includes(search.toLowerCase())
+    );
+  }, [search]);
 
-return (
+  return (
+    <>
+    <Stack gap="xl">
 
-<div>
+      <Group justify="space-between">
 
-<Title order={2}>
-Private Transfers
-</Title>
+        <div>
+          <Title order={2}>
+            P2P Private Transfers
+          </Title>
 
-<Text c="dimmed">
-Confidential peer-to-peer payments.
-</Text>
+          <Text c="dimmed">
+            Send confidential payments powered by Flare Confidential Compute.
+          </Text>
+        </div>
 
-</div>
+        <Button
+        leftSection={<LuArrowUpRight />}
+        onClick={open}
+        >
+        New Transfer
+        </Button>
 
-)
+      </Group>
 
+      <TransferStats stats={transferStats} />
+
+      <TextInput
+        placeholder="Search recipient..."
+        value={search}
+        onChange={(e) =>
+          setSearch(e.currentTarget.value)
+        }
+        leftSection={<LuSearch size={16} />}
+      />
+
+      <TransferHistory transfers={filtered} />
+
+    </Stack>
+
+    <NewTransferDrawer
+    opened={opened}
+    onClose={close}
+    type="p2p"
+    />
+    </>
+  );
 }

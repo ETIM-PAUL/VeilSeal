@@ -23,15 +23,9 @@ import {
 } from "react-icons/lu";
 import { useDisclosure } from "@mantine/hooks";
 
-import ContributionModal from "./ContributionModal";
+import NewTransferDrawer from "../transfers/NewTransferDrawer";
 
-const [
-  opened,
-  {
-      open,
-      close
-  }
-] = useDisclosure(false);
+
 
 const statusColour = {
   Queued: "yellow",
@@ -47,6 +41,14 @@ export default function TreasuryContributions({
 }) {
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("All");
+
+  const [
+    opened,
+    {
+        open,
+        close
+    }
+  ] = useDisclosure(false);
 
   const filtered = useMemo(() => {
     return contributions.filter((item) => {
@@ -64,6 +66,7 @@ export default function TreasuryContributions({
   }, [search, status, contributions]);
 
   return (
+    <>
     <Stack gap="lg">
       <Group justify="space-between">
 
@@ -97,10 +100,12 @@ export default function TreasuryContributions({
 
         </Group>
 
-        <ContributionModal
-        opened={opened}
-        onClose={close}
-        />
+        <Button
+          leftSection={<LuArrowUpRight />}
+          onClick={open}
+        >
+            New Contribution
+        </Button>
 
       </Group>
 
@@ -252,5 +257,15 @@ export default function TreasuryContributions({
         </Table.ScrollContainer>
       </Card>
     </Stack>
+    
+    <NewTransferDrawer
+    opened={opened}
+    onClose={close}
+    type="treasury"
+    />
+    </>
   );
+
+  
 }
+

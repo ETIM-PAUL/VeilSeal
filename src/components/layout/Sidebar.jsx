@@ -41,8 +41,8 @@ import {
     },
     
     {
-    name:"Private Transfers",
-    path:"/transfers",
+    name:"P2P Transfers",
+    path:"/p2p-transfers",
     icon:LuArrowLeftRight
     },
     

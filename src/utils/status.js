@@ -10,6 +10,8 @@ export const STATUS_COLOR = {
   Executing: "amber",
   Relayed: "slate",
   Failed: "danger",
+  Open: "amber",
+  Closed: "slate",
 };
 
 export function statusColor(status) {

@@ -25,6 +25,8 @@ ReactDOM.createRoot(
 
 theme={theme}
 
+defaultColorScheme="auto"
+
 >
 
 <App/>

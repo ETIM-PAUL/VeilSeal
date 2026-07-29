@@ -9,7 +9,7 @@ import {
    import TreasuryDetails from "../pages/TreasuryDetails";
    import Transfers from "../pages/Transfers";
    import Bids from "../pages/Bids";
-   import Activity from "../pages/Activity";
+   import Operations from "../pages/Operations";
    
    
    export default function AppRoutes(){
@@ -27,7 +27,7 @@ import {
    
    <Route path="/bids" element={<Bids/>}/>
    
-   <Route path="/operations" element={<Activity/>}/>
+   <Route path="/operations" element={<Operations/>}/>
    
    
    

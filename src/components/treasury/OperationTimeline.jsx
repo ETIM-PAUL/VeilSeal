@@ -1,6 +1,6 @@
-import { LuCheck } from "react-icons/lu";
+import { LuCheck, LuX } from "react-icons/lu";
 
-const steps = [
+const DEFAULT_STEPS = [
   "Wallet Signed",
   "Transaction Submitted",
   "Waiting for Relay",
@@ -9,7 +9,7 @@ const steps = [
   "Treasury Updated",
 ];
 
-export default function OperationTimeline({ current = 2 }) {
+export default function OperationTimeline({ current = 2, failed = false, steps = DEFAULT_STEPS }) {
   return (
     <div className="panel" style={{ padding: "18px 20px" }}>
       <div className="label-micro-strong" style={{ marginBottom: 18 }}>
@@ -19,6 +19,7 @@ export default function OperationTimeline({ current = 2 }) {
       {steps.map((step, index) => {
         const complete = index < current;
         const active = index === current;
+        const isFailedStep = active && failed;
         const last = index === steps.length - 1;
 
         return (
@@ -40,17 +41,24 @@ export default function OperationTimeline({ current = 2 }) {
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  background: complete
+                  background: isFailedStep
+                    ? "var(--danger-bg)"
+                    : complete
                     ? "var(--signal)"
                     : active
                     ? "var(--signal-bg)"
                     : "transparent",
                   border: `1px solid ${
-                    complete ? "var(--signal)" : active ? "var(--signal)" : "var(--line-strong)"
+                    isFailedStep
+                      ? "var(--danger)"
+                      : complete || active
+                      ? "var(--signal)"
+                      : "var(--line-strong)"
                   }`,
                 }}
               >
                 {complete && <LuCheck size={12} color="var(--panel)" />}
+                {isFailedStep && <LuX size={12} color="var(--danger)" />}
               </div>
 
               {!last && (
@@ -70,10 +78,14 @@ export default function OperationTimeline({ current = 2 }) {
                 style={{
                   fontSize: "0.875rem",
                   fontWeight: active ? 600 : 500,
-                  color: active || complete ? "var(--ink)" : "var(--ink-faint)",
+                  color: isFailedStep
+                    ? "var(--danger)"
+                    : active || complete
+                    ? "var(--ink)"
+                    : "var(--ink-faint)",
                 }}
               >
-                {step}
+                {isFailedStep ? `${step} — Failed` : step}
               </span>
             </div>
           </div>

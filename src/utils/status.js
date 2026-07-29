@@ -12,6 +12,10 @@ export const STATUS_COLOR = {
   Failed: "danger",
   Open: "amber",
   Closed: "slate",
+  Sealed: "amber",
+  Won: "signal",
+  Lost: "slate",
+  Withdrawn: "slate",
 };
 
 export function statusColor(status) {

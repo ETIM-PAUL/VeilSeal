@@ -33,4 +33,13 @@ export const transferStats = {
       createdAt: "1 hour ago",
       txHash: "0x119d...ef11",
     },
+    {
+      id: "TRF-004",
+      recipient: "0x4FD2...A991",
+      amount: "60",
+      token: "USDC",
+      status: "Failed",
+      createdAt: "3 hours ago",
+      txHash: "0x2c9e...771a",
+    },
   ];

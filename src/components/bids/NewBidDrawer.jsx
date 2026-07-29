@@ -27,6 +27,7 @@ import {
 
 import BidThumbnail from "./BidThumbnail";
 import { BID_TOKENS, ITEM_TYPES, formatDeadline, mockCid } from "../../utils/bids";
+import { getVeilBiddingContract, getBrowserSigner, isContractConfigured } from "../../contracts/VeilBidding";
 
 const initial = {
   title: "",
@@ -42,6 +43,8 @@ const initial = {
 export default function NewBidDrawer({ opened, onClose, onCreate }) {
   const [step, setStep] = useState(0);
   const [form, setForm] = useState(initial);
+  const [publishing, setPublishing] = useState(false);
+  const [publishError, setPublishError] = useState(null);
   const fileInputRef = useRef(null);
 
   const set = (key) => (value) => setForm((f) => ({ ...f, [key]: value }));
@@ -51,6 +54,7 @@ export default function NewBidDrawer({ opened, onClose, onCreate }) {
   const reset = () => {
     setForm(initial);
     setStep(0);
+    setPublishError(null);
     onClose();
   };
 
@@ -74,18 +78,53 @@ export default function NewBidDrawer({ opened, onClose, onCreate }) {
       ? "audio/*"
       : undefined;
 
-  const publish = () => {
-    onCreate({
-      title: form.title,
-      description: form.description,
-      itemType: form.itemType,
-      previewUrl: form.previewUrl,
-      ipfsHash: mockCid(),
-      deadline: form.deadline.toISOString(),
-      minBid: form.minBid,
-      token: form.token,
-    });
-    next();
+  const publish = async () => {
+    if (!isContractConfigured()) {
+      setPublishError("VeilBidding contract isn't deployed yet — set VITE_VEILBIDDING_ADDRESS in .env.");
+      return;
+    }
+
+    setPublishing(true);
+    setPublishError(null);
+
+    try {
+      const signer = await getBrowserSigner();
+      const contract = getVeilBiddingContract(signer);
+
+      const deadlineUnix = Math.floor(form.deadline.getTime() / 1000);
+      const tx = await contract.createListing(deadlineUnix);
+      const receipt = await tx.wait();
+
+      const createdEvent = receipt.logs
+        .map((log) => {
+          try {
+            return contract.interface.parseLog(log);
+          } catch {
+            return null;
+          }
+        })
+        .find((parsed) => parsed?.name === "ListingCreated");
+
+      if (!createdEvent) throw new Error("ListingCreated event not found in transaction receipt.");
+
+      onCreate({
+        title: form.title,
+        description: form.description,
+        itemType: form.itemType,
+        previewUrl: form.previewUrl,
+        ipfsHash: mockCid(),
+        deadline: form.deadline.toISOString(),
+        minBid: form.minBid,
+        token: form.token,
+        onChainListingId: createdEvent.args.listingId.toString(),
+        txHash: tx.hash,
+      });
+      next();
+    } catch (err) {
+      setPublishError(err?.reason ?? err?.message ?? "Failed to create listing on-chain.");
+    } finally {
+      setPublishing(false);
+    }
   };
 
   const canContinue = form.title.trim() && form.deadline && form.minBid > 0;
@@ -246,12 +285,18 @@ export default function NewBidDrawer({ opened, onClose, onCreate }) {
             </Text>
 
             <Text ta="center" c="dimmed">
-              Confirm the transaction to pin the item to IPFS and open sealed
-              bidding.
+              Confirm the transaction to create this listing on-chain (Coston2)
+              and open sealed bidding.
             </Text>
 
-            <Button mt="lg" onClick={publish}>
-              Simulate Signature
+            {publishError && (
+              <Text ta="center" size="sm" style={{ color: "var(--danger)" }}>
+                {publishError}
+              </Text>
+            )}
+
+            <Button mt="lg" onClick={publish} loading={publishing}>
+              Create Listing On-Chain
             </Button>
           </Stack>
         </Stepper.Step>

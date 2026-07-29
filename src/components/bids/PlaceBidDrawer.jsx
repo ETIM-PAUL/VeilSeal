@@ -17,11 +17,20 @@ import { LuCheckCheck, LuLock, LuShieldCheck, LuWallet } from "react-icons/lu";
 
 import { BID_TOKENS } from "../../utils/bids";
 import { MY_WALLET } from "../../data/bids";
+import { useWallet } from "../../context/useWallet";
+import { getVeilBiddingContract, getBrowserSigner, isContractConfigured } from "../../contracts/VeilBidding";
+import { computeTermsCommitment, encryptBidTerms, randomNonce, toChainAmount } from "../../utils/sealedBid";
+
+const TEE_PUBLIC_KEY = import.meta.env.VITE_TEE_PUBLIC_KEY;
 
 export default function PlaceBidDrawer({ opened, onClose, bid, onSubmit }) {
+  const { address } = useWallet();
+
   const [step, setStep] = useState(0);
   const [amount, setAmount] = useState();
   const [token, setToken] = useState(bid?.token ?? "FLR");
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState(null);
 
   // Keep the last known bid around so the drawer content stays in place
   // while it animates closed, instead of vanishing mid-transition.
@@ -37,12 +46,50 @@ export default function PlaceBidDrawer({ opened, onClose, bid, onSubmit }) {
     setAmount(undefined);
     setToken(bid?.token ?? "FLR");
     setStep(0);
+    setSubmitError(null);
     onClose();
   };
 
-  const confirm = () => {
-    onSubmit({ amount, token, wallet: MY_WALLET });
-    next();
+  const onChain = Boolean(activeBid?.onChainListingId) && isContractConfigured();
+
+  const confirm = async () => {
+    const wallet = address ?? MY_WALLET;
+
+    if (!onChain) {
+      // Listing predates on-chain wiring (or contract not deployed) — keep
+      // the original local-only mock flow for backward compatibility.
+      onSubmit({ amount, token, wallet });
+      next();
+      return;
+    }
+
+    if (!TEE_PUBLIC_KEY) {
+      setSubmitError("VITE_TEE_PUBLIC_KEY is not set — can't encrypt the sealed bid.");
+      return;
+    }
+
+    setSubmitting(true);
+    setSubmitError(null);
+
+    try {
+      const signer = await getBrowserSigner();
+      const contract = getVeilBiddingContract(signer);
+
+      const chainAmount = toChainAmount(amount);
+      const nonce = randomNonce();
+      const termsCommitment = computeTermsCommitment({ amount: chainAmount, nonce, bidder: wallet });
+      const encryptedTerms = await encryptBidTerms({ amount: chainAmount, nonce, bidder: wallet }, TEE_PUBLIC_KEY);
+
+      const tx = await contract.submitSealedBid(activeBid.onChainListingId, termsCommitment, encryptedTerms);
+      await tx.wait();
+
+      onSubmit({ amount, token, wallet, termsCommitment, txHash: tx.hash });
+      next();
+    } catch (err) {
+      setSubmitError(err?.reason ?? err?.message ?? "Failed to submit sealed bid on-chain.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   if (!activeBid) return null;
@@ -78,8 +125,9 @@ export default function PlaceBidDrawer({ opened, onClose, bid, onSubmit }) {
         <Stepper.Step label="Review">
           <Stack mt="xl">
             <Alert icon={<LuShieldCheck />}>
-              This sealed bid will be processed through Flare Confidential
-              Compute and only revealed after the deadline.
+              {onChain
+                ? "This sealed bid will be ECIES-encrypted, committed on-chain, and only revealed by the TEE after the deadline."
+                : "This sealed bid will be processed through Flare Confidential Compute and only revealed after the deadline."}
             </Alert>
 
             <Divider />
@@ -96,7 +144,13 @@ export default function PlaceBidDrawer({ opened, onClose, bid, onSubmit }) {
               </Text>
             </Group>
 
-            <Button leftSection={<LuWallet size={15} />} onClick={confirm}>
+            {submitError && (
+              <Text size="sm" style={{ color: "var(--danger)" }}>
+                {submitError}
+              </Text>
+            )}
+
+            <Button leftSection={<LuWallet size={15} />} onClick={confirm} loading={submitting}>
               Sign with Wallet
             </Button>
           </Stack>

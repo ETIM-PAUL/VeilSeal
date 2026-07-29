@@ -46,7 +46,7 @@ export default function Bids() {
     ]);
   };
 
-  const handlePlaceBid = ({ amount, token, wallet }) => {
+  const handlePlaceBid = ({ amount, token, wallet, termsCommitment, txHash }) => {
     setBids((prev) =>
       prev.map((b) =>
         b.id === placeBidId
@@ -62,6 +62,8 @@ export default function Bids() {
                   submittedAt: "Just now",
                   mine: true,
                   withdrawn: false,
+                  termsCommitment,
+                  txHash,
                 },
               ],
             }

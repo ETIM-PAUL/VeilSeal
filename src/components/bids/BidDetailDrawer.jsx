@@ -1,10 +1,13 @@
-import { useState } from "react";
-import { Badge, Button, Drawer, Group, Stack, Text } from "@mantine/core";
-import { LuGavel, LuLock, LuTrophy, LuUndo2 } from "react-icons/lu";
+import { useEffect, useState } from "react";
+import { Anchor, Badge, Button, Drawer, Group, Loader, Stack, Text } from "@mantine/core";
+import { LuGavel, LuLock, LuTrophy, LuUndo2, LuShieldCheck, LuExternalLink } from "react-icons/lu";
 
 import BidThumbnail from "./BidThumbnail";
 import { statusColor } from "../../utils/status";
 import { getBidStatus, getWinner, formatCountdown, formatDeadline } from "../../utils/bids";
+import { fetchOnChainListing, isContractConfigured } from "../../contracts/VeilBidding";
+import { truncateAddress, explorerTxUrl } from "../../utils/network";
+import { fromChainAmount } from "../../utils/sealedBid";
 
 export default function BidDetailDrawer({ opened, onClose, bid: liveBid, onPlaceBid, onWithdraw }) {
   // Keep the last known bid around so the drawer content stays in place
@@ -14,6 +17,40 @@ export default function BidDetailDrawer({ opened, onClose, bid: liveBid, onPlace
     setCachedBid(liveBid);
   }
   const bid = liveBid ?? cachedBid;
+
+  const [onChainData, setOnChainData] = useState(null);
+  const [onChainLoading, setOnChainLoading] = useState(false);
+
+  const onChainListingId = bid?.onChainListingId;
+
+  useEffect(() => {
+    let cancelled = false;
+
+    // Deferred a tick so every state update below happens post-await,
+    // never synchronously within the effect body.
+    Promise.resolve().then(async () => {
+      if (cancelled) return;
+
+      if (!opened || !onChainListingId || !isContractConfigured()) {
+        setOnChainData(null);
+        return;
+      }
+
+      setOnChainLoading(true);
+      try {
+        const data = await fetchOnChainListing(onChainListingId);
+        if (!cancelled) setOnChainData(data);
+      } catch {
+        if (!cancelled) setOnChainData(null);
+      } finally {
+        if (!cancelled) setOnChainLoading(false);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [opened, onChainListingId]);
 
   if (!bid) return null;
 
@@ -60,6 +97,75 @@ export default function BidDetailDrawer({ opened, onClose, bid: liveBid, onPlace
         <Text size="xs" className="ink-faint num" style={{ wordBreak: "break-all" }}>
           IPFS: {bid.ipfsHash}
         </Text>
+
+        {onChainListingId && (
+          <div className="panel" style={{ padding: 14 }}>
+            <Group gap={6} mb={onChainLoading || onChainData ? 10 : 0}>
+              <LuShieldCheck size={13} color="var(--signal)" />
+              <Text className="label-micro-strong">On-Chain Proof — Listing #{onChainListingId}</Text>
+            </Group>
+
+            {onChainLoading && <Loader size="xs" />}
+
+            {!onChainLoading && onChainData?.revealed && (
+              <Stack gap={6}>
+                <Group justify="space-between">
+                  <Text size="xs" className="ink-dim">
+                    TEE-Attested Winner
+                  </Text>
+                  <Text size="xs" fw={600} className="num">
+                    {truncateAddress(onChainData.winner)}
+                  </Text>
+                </Group>
+
+                <Group justify="space-between">
+                  <Text size="xs" className="ink-dim">
+                    Winning Amount
+                  </Text>
+                  <Text size="xs" fw={600} className="num">
+                    {fromChainAmount(onChainData.winningAmount).toLocaleString()} {bid.token}
+                  </Text>
+                </Group>
+
+                <Group justify="space-between">
+                  <Text size="xs" className="ink-dim">
+                    Result Hash
+                  </Text>
+                  <Text size="xs" className="num ink-faint">
+                    {truncateAddress(onChainData.resultHash)}
+                  </Text>
+                </Group>
+
+                {onChainData.txHash && (
+                  <Anchor
+                    href={explorerTxUrl(onChainData.txHash)}
+                    target="_blank"
+                    rel="noreferrer"
+                    size="xs"
+                  >
+                    <Group gap={4}>
+                      <span>View settlement transaction</span>
+                      <LuExternalLink size={11} />
+                    </Group>
+                  </Anchor>
+                )}
+              </Stack>
+            )}
+
+            {!onChainLoading && onChainData && !onChainData.revealed && (
+              <Text size="xs" className="ink-dim">
+                Sealed bids are committed on Coston2. The TEE settlement watcher
+                will decrypt and reveal the winner once the deadline passes.
+              </Text>
+            )}
+
+            {!onChainLoading && !onChainData && (
+              <Text size="xs" className="ink-faint">
+                On-chain data unavailable — contract not configured or unreachable.
+              </Text>
+            )}
+          </div>
+        )}
 
         {status === "Open" && (
           <Button leftSection={<LuGavel size={15} />} onClick={() => onPlaceBid(bid.id)}>
@@ -113,6 +219,15 @@ export default function BidDetailDrawer({ opened, onClose, bid: liveBid, onPlace
                     <Text size="xs" className="ink-faint">
                       {p.submittedAt}
                     </Text>
+
+                    {p.txHash && (
+                      <Anchor href={explorerTxUrl(p.txHash)} target="_blank" rel="noreferrer" size="xs">
+                        <Group gap={3}>
+                          <span>sealed on-chain</span>
+                          <LuExternalLink size={10} />
+                        </Group>
+                      </Anchor>
+                    )}
                   </div>
                 </Group>
 

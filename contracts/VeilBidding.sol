@@ -33,9 +33,12 @@ contract VeilBidding {
     bytes32 public constant OP_COMMAND_SEAL = bytes32("SEAL");
     bytes32 public constant OP_COMMAND_REVEAL = bytes32("REVEAL");
 
-    // Domain separator for TEE result signatures, mirroring Flare's
-    // ActionResult signing scheme.
-    bytes32 public constant TEE_ACTION_RESULT_PREFIX = keccak256("VEILPAY_TEE_ACTION_RESULT");
+    // Domain separator for TEE result signatures, mirroring Flare's own
+    // ActionResult signing scheme exactly (WeatherInsurance.sol uses
+    // `bytes32("TEE_ACTION_RESULT")` — a direct string-to-bytes32 cast,
+    // not a keccak256 hash of the string).
+    // forge-lint: disable-next-line(unsafe-typecast)
+    bytes32 public constant TEE_ACTION_RESULT_PREFIX = bytes32("VEILPAY_TEE_ACTION_RESULT");
 
     address public owner;
     address public teeAddress;
@@ -151,7 +154,8 @@ contract VeilBidding {
         if (block.timestamp < listing.deadline) revert DeadlineNotReached();
         if (listing.revealed) revert AlreadyRevealed();
 
-        bytes32 signedHash = keccak256(abi.encode(TEE_ACTION_RESULT_PREFIX, block.chainid, listingId, resultHash));
+        bytes32 signedHash =
+            keccak256(abi.encode(TEE_ACTION_RESULT_PREFIX, block.chainid, address(this), listingId, resultHash));
         address signer = signedHash.toEthSignedMessageHash().recover(signature);
         if (signer != teeAddress) revert BadTeeSignature();
 

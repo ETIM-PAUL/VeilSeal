@@ -7,7 +7,11 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "compile": "hardhat compile",
+    "deploy:coston2": "hardhat run scripts/deploy.cjs --network coston2",
+    "tee:generate-key": "hardhat run scripts/generate-tee-key.cjs",
+    "tee:watch": "node scripts/simulate-tee-settle.cjs"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",

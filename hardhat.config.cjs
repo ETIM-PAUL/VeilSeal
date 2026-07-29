@@ -9,6 +9,9 @@ module.exports = {
     version: "0.8.24",
     settings: {
       optimizer: { enabled: true, runs: 200 },
+      // OpenZeppelin 5.6's Bytes.sol requires MCOPY (Cancun), which is
+      // widely supported by now including Flare's C-chain testnets.
+      evmVersion: "cancun",
     },
   },
   networks: {

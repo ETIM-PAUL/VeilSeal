@@ -22,3 +22,7 @@ export function truncateAddress(address) {
 export function explorerAddressUrl(address) {
   return `${COSTON2_PARAMS.blockExplorerUrls[0]}/address/${address}`;
 }
+
+export function explorerTxUrl(txHash) {
+  return `${COSTON2_PARAMS.blockExplorerUrls[0]}/tx/${txHash}`;
+}

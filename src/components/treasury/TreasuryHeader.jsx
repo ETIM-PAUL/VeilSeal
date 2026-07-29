@@ -10,7 +10,8 @@ export default function TreasuryHeader({ treasury }) {
       <Group align="flex-start">
         <Button
           variant="subtle"
-          leftSection={<LuArrowLeft />}
+          color="ink"
+          leftSection={<LuArrowLeft size={15} />}
           onClick={() => navigate("/treasuries")}
         >
           Back
@@ -19,17 +20,13 @@ export default function TreasuryHeader({ treasury }) {
         <Stack gap={4}>
           <Title order={2}>{treasury.name}</Title>
 
-          <Text c="dimmed">
+          <Text className="caption">
             Confidential treasury secured with Flare Confidential Compute.
           </Text>
         </Stack>
       </Group>
 
-      <Badge
-        size="lg"
-        color="teal"
-        leftSection={<LuShieldCheck size={14} />}
-      >
+      <Badge size="lg" color="signal" leftSection={<LuShieldCheck size={13} />}>
         TEE Protected
       </Badge>
     </Group>

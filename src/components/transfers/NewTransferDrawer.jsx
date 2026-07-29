@@ -12,7 +12,6 @@ import {
   TextInput,
   Alert,
   Badge,
-  Paper,
 } from "@mantine/core";
 
 import {
@@ -103,17 +102,13 @@ export default function NewTransferDrawer({
               }
             />
 
-            <Paper
-              withBorder
-              p="md"
-              radius="md"
-            >
+            <div className="panel" style={{ padding: 14 }}>
               <Group justify="space-between">
-                <Text size="sm">
+                <Text size="sm" className="ink-dim">
                   Estimated Fee
                 </Text>
 
-                <Text fw={600}>
+                <Text fw={600} className="num">
                   0.02 FLR
                 </Text>
               </Group>
@@ -122,15 +117,15 @@ export default function NewTransferDrawer({
                 justify="space-between"
                 mt="xs"
               >
-                <Text size="sm">
+                <Text size="sm" className="ink-dim">
                   Network
                 </Text>
 
-                <Badge>
+                <Badge variant="outline" color="slate">
                   Coston2
                 </Badge>
               </Group>
-            </Paper>
+            </div>
 
             <Button
               rightSection={<LuArrowRight />}
@@ -174,7 +169,7 @@ export default function NewTransferDrawer({
                 Amount
               </Text>
 
-              <Text fw={700}>
+              <Text fw={700} className="num">
                 {amount} {token}
               </Text>
             </Group>
@@ -243,7 +238,7 @@ export default function NewTransferDrawer({
           >
             <LuCheckCheck
               size={72}
-              color="#2f9e44"
+              color="var(--signal)"
             />
 
             <Text

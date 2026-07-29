@@ -1,67 +1,42 @@
-import {
-    Card,
-    Stack,
-    Text,
-    Progress,
-    Group
-} from "@mantine/core";
+import { Group, Text, Badge } from "@mantine/core";
 
-export default function VaultSummary() {
+import { statusColor } from "../../utils/status";
 
-    return (
+export default function VaultSummary({ treasury }) {
+  const rows = [
+    { label: "Type", value: treasury.type },
+    { label: "Network", value: "Coston2" },
+    { label: "Custody", value: "TEE-Managed" },
+  ];
 
-        <Card withBorder radius="lg">
+  return (
+    <div className="panel" style={{ padding: "18px 20px" }}>
+      <Group justify="space-between" mb="md">
+        <Text className="label-micro-strong">Vault Summary</Text>
 
-            <Stack>
+        <Badge color={statusColor(treasury.status)}>
+          {treasury.status ?? "Healthy"}
+        </Badge>
+      </Group>
 
-                <Text fw={700}>
-                    Vault Allocation
-                </Text>
+      <div className="hairline-top" style={{ marginBottom: 4 }} />
 
-                <div>
+      {rows.map((row, index) => (
+        <Group
+          key={row.label}
+          justify="space-between"
+          py={10}
+          className={index !== rows.length - 1 ? "hairline-bottom" : ""}
+        >
+          <Text size="sm" className="ink-dim">
+            {row.label}
+          </Text>
 
-                    <Group justify="space-between">
-                        <Text size="sm">Available</Text>
-                        <Text size="sm">68%</Text>
-                    </Group>
-
-                    <Progress value={68} mt={6}/>
-                </div>
-
-                <div>
-
-                    <Group justify="space-between">
-                        <Text size="sm">Reserved</Text>
-                        <Text size="sm">22%</Text>
-                    </Group>
-
-                    <Progress
-                        value={22}
-                        color="orange"
-                        mt={6}
-                    />
-
-                </div>
-
-                <div>
-
-                    <Group justify="space-between">
-                        <Text size="sm">Pending Settlement</Text>
-                        <Text size="sm">10%</Text>
-                    </Group>
-
-                    <Progress
-                        value={10}
-                        color="violet"
-                        mt={6}
-                    />
-
-                </div>
-
-            </Stack>
-
-        </Card>
-
-    );
-
+          <Text size="sm" fw={600}>
+            {row.value}
+          </Text>
+        </Group>
+      ))}
+    </div>
+  );
 }

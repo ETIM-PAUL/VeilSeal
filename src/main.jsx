@@ -10,7 +10,7 @@ import {
 import "@mantine/core/styles.css";
 
 import App from "./App";
-
+import "@mantine/dates/styles.css";
 import "./index.css";
 
 

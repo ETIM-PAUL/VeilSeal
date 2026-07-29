@@ -1,33 +1,16 @@
-import {
+import { Badge } from "@mantine/core";
 
-    Badge,
-    Group
-    
-    } from "@mantine/core";
-    
-    
-    import {
-    LuWallet
-    } from "react-icons/lu";
-    
-    
-    export default function WalletBadge(){
-    
-    
-    return (
-    
+import { LuWallet } from "react-icons/lu";
+
+export default function WalletBadge() {
+  return (
     <Badge
-    
-    variant="light"
-    
-    leftSection={<LuWallet size={14}/>}
-    
+      variant="outline"
+      color="slate"
+      leftSection={<LuWallet size={12} />}
+      style={{ fontFamily: "var(--font-mono)", textTransform: "none" }}
     >
-    
-    0x82...91A
-    
+      0x82...91A
     </Badge>
-    
-    )
-    
-    }
+  );
+}

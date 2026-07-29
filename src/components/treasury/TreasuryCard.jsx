@@ -1,4 +1,4 @@
-import { Card, Group, Stack, Text, Badge, Button, Divider } from "@mantine/core";
+import { Group, Stack, Text, Badge, Button } from "@mantine/core";
 import { LuShieldCheck, LuUsers, LuWallet, LuArrowRight } from "react-icons/lu";
 import { useNavigate } from "react-router-dom";
 
@@ -6,86 +6,61 @@ export default function TreasuryCard({ treasury }) {
   const navigate = useNavigate();
 
   return (
-    <Card
-      withBorder
-      radius="lg"
-      shadow="sm"
-      padding="lg"
-      style={{
-        transition: "all .2s ease",
-        cursor: "pointer"
-      }}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.transform = "translateY(-2px)";
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.transform = "translateY(0)";
-      }}
+    <div
+      className="panel"
+      style={{ padding: 20, cursor: "pointer" }}
+      onClick={() => navigate(`/treasuries/${treasury.id}`)}
     >
-      <Group justify="space-between" mb="sm">
+      <Group justify="space-between" mb="md" align="flex-start" wrap="nowrap">
         <Stack gap={2}>
-          <Text fw={700} size="lg">
+          <Text fw={600} size="md" style={{ fontFamily: "var(--font-display)" }}>
             {treasury.name}
           </Text>
 
-          <Text size="sm" c="dimmed">
-            {treasury.type}
-          </Text>
+          <Text className="label-micro">{treasury.type}</Text>
         </Stack>
 
-        <Badge
-          color="teal"
-          leftSection={<LuShieldCheck size={12} />}
-        >
-          TEE Protected
+        <Badge color="signal" leftSection={<LuShieldCheck size={11} />}>
+          TEE
         </Badge>
       </Group>
 
-      <Divider my="md" />
+      <div className="hairline-top" style={{ margin: "12px 0" }} />
 
-      <Group grow mb="md">
+      <Group grow mb="md" align="flex-start">
         <Stack gap={2}>
-          <Text size="xs" c="dimmed">
-            Balance
-          </Text>
-
-          <Text fw={700}>{treasury.balance}</Text>
+          <Text className="label-micro">Balance</Text>
+          <div className="num-lg">{treasury.balance}</div>
         </Stack>
 
         <Stack gap={2}>
-          <Text size="xs" c="dimmed">
-            Members
-          </Text>
-
+          <Text className="label-micro">Members</Text>
           <Group gap={4}>
-            <LuUsers size={15} />
-            <Text fw={600}>{treasury.members}</Text>
+            <LuUsers size={13} className="ink-dim" />
+            <div className="num-lg">{treasury.members}</div>
           </Group>
         </Stack>
       </Group>
 
-      <Group grow mb="lg">
+      <Group grow mb="lg" align="flex-start">
         <Stack gap={2}>
-          <Text size="xs" c="dimmed">
-            Pending Operations
-          </Text>
-
-          <Text fw={600}>{treasury.operations}</Text>
+          <Text className="label-micro">Pending Ops</Text>
+          <div className="num-md">{treasury.operations}</div>
         </Stack>
 
         <Stack gap={2}>
-          <Text size="xs" c="dimmed">
-            Last Attestation
+          <Text className="label-micro">Last Attestation</Text>
+          <Text size="sm" fw={500}>
+            {treasury.lastAttestation}
           </Text>
-
-          <Text fw={600}>{treasury.lastAttestation}</Text>
         </Stack>
       </Group>
 
       <Button
         fullWidth
-        rightSection={<LuArrowRight />}
-        leftSection={<LuWallet />}
+        variant="light"
+        rightSection={<LuArrowRight size={15} />}
+        leftSection={<LuWallet size={15} />}
         onClick={(e) => {
           e.stopPropagation();
           navigate(`/treasuries/${treasury.id}`);
@@ -93,6 +68,6 @@ export default function TreasuryCard({ treasury }) {
       >
         Open Treasury
       </Button>
-    </Card>
+    </div>
   );
 }

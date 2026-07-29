@@ -48,13 +48,13 @@ export default function PrivateTransfers() {
             P2P Private Transfers
           </Title>
 
-          <Text c="dimmed">
+          <Text className="caption" mt={4}>
             Send confidential payments powered by Flare Confidential Compute.
           </Text>
         </div>
 
         <Button
-        leftSection={<LuArrowUpRight />}
+        leftSection={<LuArrowUpRight size={15} />}
         onClick={open}
         >
         New Transfer
@@ -70,7 +70,7 @@ export default function PrivateTransfers() {
         onChange={(e) =>
           setSearch(e.currentTarget.value)
         }
-        leftSection={<LuSearch size={16} />}
+        leftSection={<LuSearch size={15} />}
       />
 
       <TransferHistory transfers={filtered} />

@@ -3,7 +3,6 @@ import { useState } from "react";
 import {
     Modal,
     Stack,
-    TextInput,
     NumberInput,
     Select,
     Button,
@@ -17,8 +16,7 @@ import {
 
 import {
     LuCircleCheck,
-    LuShieldCheck,
-    LuWallet
+    LuShieldCheck
 } from "react-icons/lu";
 
 const TOKENS = [
@@ -114,7 +112,7 @@ export default function ContributionModal({
 
                             <Text>Amount</Text>
 
-                            <Text fw={700}>
+                            <Text fw={700} className="num">
                                 {amount} {token}
                             </Text>
 
@@ -129,7 +127,7 @@ export default function ContributionModal({
                             </Text>
 
                             <ThemeIcon
-                                color="teal"
+                                color="signal"
                             >
                                 <LuShieldCheck/>
                             </ThemeIcon>
@@ -194,7 +192,7 @@ export default function ContributionModal({
 
                         <ThemeIcon
                             size={80}
-                            color="green"
+                            color="signal"
                             radius="xl"
                         >
                             <LuCircleCheck size={40}/>

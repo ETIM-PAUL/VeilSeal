@@ -56,8 +56,8 @@ log "EXTENSION_ID:       ${EXTENSION_ID:-<not set>}"
 log "INSTRUCTION_SENDER: ${INSTRUCTION_SENDER:-<not set>}"
 log "CHAIN_URL:          ${CHAIN_URL:-<not set>}"
 
-# --- weather-insurance: register the active TEE signing address on the contract ---
-# settle() verifies the TEE's signature on the rainfall result via ecrecover, so
+# --- Register the active TEE signing address on the contract ---
+# submitRevealResult() verifies the TEE's signature via ecrecover, so
 # the contract needs to know the TEE's address. It's only derivable after the TEE
 # registers itself on TeeMachineRegistry — hence this runs post-build.
 
@@ -90,9 +90,9 @@ if [[ -z "$tee_addr" || "$tee_addr" == "0x00000000000000000000000000000000000000
 fi
 
 log "Active TEE address: $tee_addr"
-log "Registering it on WeatherInsurance ($INSTRUCTION_SENDER)..."
+log "Registering it on VeilBidding ($INSTRUCTION_SENDER)..."
 cast_env_tx cast send --rpc-url "$CHAIN_URL" --chain flare-coston2 \
     "$INSTRUCTION_SENDER" "setTeeAddress(address)" "$tee_addr" \
     --private-key "$DEPLOYMENT_PRIVATE_KEY" >/dev/null
 
-log "TEE address registered. settle() will now accept signatures from $tee_addr."
+log "TEE address registered. submitRevealResult() will now accept signatures from $tee_addr."

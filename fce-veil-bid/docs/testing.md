@@ -1,8 +1,8 @@
 # Testing
 
 > **Note:** Code samples in this doc reference the original scaffold's `SAY_HELLO` /
-> `SAY_GOODBYE` operations. The weather-insurance extension exposes a single
-> `WEATHER` / `FETCH` operation — see `pkg/types/register.go` and
+> `SAY_GOODBYE` operations. The veilbidding extension exposes a single
+> `BID` / `REVEAL` operation — see `pkg/types/register.go` and
 > `tools/cmd/run-test/main.go` for the actual surface used here.
 
 This project has three layers of tests:

@@ -1,16 +1,16 @@
 #!/usr/bin/env bash
-# settle-policy.sh — Keeper: settle one rainfall policy.
+# reveal-listing.sh — Keeper: reveal one sealed-bid listing.
 #
-# Run this on/after the policy's coverage date (after midnight UTC on the following day;
-# event day). It asks the TEE to fetch that date's rainfall from OpenWeatherMap,
-# then relays the TEE-signed result to WeatherInsurance.settle(), which verifies
-# the signature and pays out if the threshold was met.
+# Run this on/after the listing's deadline. It routes every sealed bid for the
+# listing to the TEE (which decrypts each one and determines the winner), then
+# relays the TEE-signed result to VeilBidding.submitRevealResult(), which
+# verifies the signature and records the winner on-chain.
 #
 # Usage:
-#   ./scripts/settle-policy.sh <policyId>
+#   ./scripts/reveal-listing.sh <listingId>
 #
 # Inputs (env vars, auto-loaded from .env + config/extension.env):
-#   INSTRUCTION_SENDER  — deployed WeatherInsurance address
+#   INSTRUCTION_SENDER  — deployed VeilBidding address
 #   EXT_PROXY_URL       — extension proxy URL (auto-detected if unset)
 #   CHAIN_URL           — chain RPC URL
 #   ADDRESSES_FILE      — path to deployed-addresses.json (auto-detected if unset)
@@ -20,11 +20,11 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 RED='\033[0;31m'; GREEN='\033[0;32m'; CYAN='\033[0;36m'; NC='\033[0m'
-log()  { echo -e "${GREEN}[settle]${NC} $*"; }
-die()  { echo -e "${RED}[settle] ERROR:${NC} $*" >&2; exit 1; }
+log()  { echo -e "${GREEN}[reveal]${NC} $*"; }
+die()  { echo -e "${RED}[reveal] ERROR:${NC} $*" >&2; exit 1; }
 
-[[ $# -eq 1 ]] || die "usage: $0 <policyId>"
-POLICY_ID="$1"
+[[ $# -eq 1 ]] || die "usage: $0 <listingId>"
+LISTING_ID="$1"
 
 # --- Load env ---
 if [[ -f "$PROJECT_DIR/.env" ]]; then
@@ -53,19 +53,19 @@ if [[ -n "$ADDRESSES_FILE" && "$ADDRESSES_FILE" != /* ]]; then
     ADDRESSES_FILE="$PROJECT_DIR/$ADDRESSES_FILE"
 fi
 
-log "Policy:             $POLICY_ID"
-log "WeatherInsurance:   $INSTRUCTION_SENDER"
+log "Listing:            $LISTING_ID"
+log "VeilBidding:        $INSTRUCTION_SENDER"
 log "Extension proxy:    $EXT_PROXY_URL"
 log "Chain URL:          $CHAIN_URL"
 
-ARGS=(-c "$CHAIN_URL" -p "$EXT_PROXY_URL" -contract "$INSTRUCTION_SENDER" -policyId "$POLICY_ID")
+ARGS=(-c "$CHAIN_URL" -p "$EXT_PROXY_URL" -contract "$INSTRUCTION_SENDER" -listingId "$LISTING_ID")
 [[ -n "$ADDRESSES_FILE" ]] && ARGS+=(-a "$ADDRESSES_FILE")
 
-echo -e "\n${CYAN}=== Requesting settlement and relaying TEE result ===${NC}"
+echo -e "\n${CYAN}=== Requesting reveal and relaying TEE result ===${NC}"
 cd "$PROJECT_DIR/tools"
-go run ./cmd/settle "${ARGS[@]}" || die "settlement failed"
+go run ./cmd/settle "${ARGS[@]}" || die "reveal failed"
 
 echo ""
 echo -e "${GREEN}========================================${NC}"
-echo -e "${GREEN} Policy $POLICY_ID settled${NC}"
+echo -e "${GREEN} Listing $LISTING_ID revealed${NC}"
 echo -e "${GREEN}========================================${NC}"

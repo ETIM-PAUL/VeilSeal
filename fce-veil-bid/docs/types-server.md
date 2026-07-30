@@ -1,9 +1,9 @@
 # Types Server
 
 > **Note:** Code samples in this doc reference the original scaffold's
-> `GREETING` / `SAY_HELLO` decoders. The weather-insurance extension registers
-> a `WEATHER` / `FETCH` pair (ABI-encoded `GetWeatherMessage` in, JSON
-> `WeatherReport` out) — see `pkg/types/register.go`.
+> `GREETING` / `SAY_HELLO` decoders. The veilbidding extension registers
+> a `BID` / `REVEAL` pair (ABI-encoded `RevealMessage` in, ABI-encoded
+> `RevealResult` out) — see `pkg/types/register.go`.
 
 The types server is a lightweight HTTP sidecar that decodes raw hex-encoded instruction data into human-readable JSON. It runs alongside your extension and provides a `/decode` endpoint that frontends, dashboards, and debugging tools can call to display instruction payloads and results in structured form — without needing to know the Go types themselves.
 

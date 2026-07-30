@@ -1,4 +1,4 @@
-# Weather-insurance extension stack — Coston2/Coston/local simulated.
+# Veilbidding extension stack — Coston2/Coston/local simulated.
 #
 # Usage:
 #   docker compose up -d                                                       # default network
@@ -62,7 +62,6 @@ services:
       - EXTENSION_PORT=7702
       - TYPES_SERVER_PORT=8100
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
-      - OPENWEATHERMAP_API_KEY=${OPENWEATHERMAP_API_KEY}
     ports:
       - "${TYPES_SERVER_BIND:-127.0.0.1:8100}:8100"
     depends_on:

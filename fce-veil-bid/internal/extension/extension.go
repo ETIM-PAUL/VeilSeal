@@ -18,8 +18,7 @@ import (
 )
 
 // Extension is stateless — REVEAL carries every sealed bid's ciphertext
-// inline, so there's nothing to remember between instructions (unlike
-// weather-insurance's private-buy commitment map).
+// inline, so there's nothing to remember between instructions.
 type Extension struct {
 	Server *http.Server
 

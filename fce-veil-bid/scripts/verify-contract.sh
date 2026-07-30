@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# verify-contract.sh — Verify the deployed WeatherInsurance contract source on the
+# verify-contract.sh — Verify the deployed VeilBidding contract source on the
 # chain's Blockscout explorer.
 #
 # Called automatically by pre-build.sh right after deployment, and can be re-run
@@ -80,7 +80,7 @@ if ! command -v cast >/dev/null 2>&1; then
     exit 0
 fi
 
-# --- Constructor args: WeatherInsurance(ITeeExtensionRegistry, ITeeMachineRegistry),
+# --- Constructor args: VeilBidding(ITeeExtensionRegistry, ITeeMachineRegistry),
 #     both the FlareTeeManager diamond (see DeployInstructionSender). ---
 ADDRESSES_FILE="${ADDRESSES_FILE:-}"
 if [[ -n "$ADDRESSES_FILE" && "$ADDRESSES_FILE" != /* ]]; then

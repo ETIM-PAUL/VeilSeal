@@ -1,4 +1,4 @@
-# Build context is the weather-insurance extension dir. The extension module pulls
+# Build context is the veilbidding extension dir. The extension module pulls
 # github.com/flare-foundation/tee-node v0.0.20 from the network — no on-disk
 # sibling repo or replace directive is needed.
 
@@ -50,7 +50,7 @@ ENV MODE=0 CONFIG_PORT=5501 SIGN_PORT=7701 EXTENSION_PORT=7702
 
 USER 0:0
 
-LABEL "tee.launch_policy.allow_env_override"="LOG_LEVEL,PROXY_URL,INITIAL_OWNER,EXTENSION_ID,CHAIN_URL,MODE,CONFIG_PORT,SIGN_PORT,EXTENSION_PORT,OPENWEATHERMAP_API_KEY"
+LABEL "tee.launch_policy.allow_env_override"="LOG_LEVEL,PROXY_URL,INITIAL_OWNER,EXTENSION_ID,CHAIN_URL,MODE,CONFIG_PORT,SIGN_PORT,EXTENSION_PORT"
 
 EXPOSE 5501 7701 7702
 

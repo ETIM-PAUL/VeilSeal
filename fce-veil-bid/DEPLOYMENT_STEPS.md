@@ -1,49 +1,44 @@
-# Weather-insurance extension — deployment
+# VeilBidding extension — deployment
 
-Parametric rainfall insurance TEE extension for Flare Coston / Coston2.
+Sealed-bid auction TEE extension for Flare Coston2.
 
 > **Two deployment modes.** The main path deploys to a **GCP Confidential Space VM**
 > (production attestation, devops-hosted proxy). For development, run the TEE and
 > proxy as **local Docker containers** with a **simulated** TEE (`SIMULATED_TEE=true`,
-> `MODE=1`) exposed via **ngrok** on the real chain — see
-> [Local / simulated deployment](#local--simulated-deployment-docker--ngrok).
+> `MODE=1`) exposed via a tunnel on the real chain — see
+> [Local / simulated deployment](#local--simulated-deployment-docker--tunnel).
 
 ## Prerequisites
 
 - Docker Desktop (Linux containers)
 - Go 1.25.1+, Foundry (`forge`, `cast`), `jq`, `curl`
-- **OpenWeatherMap API key** — set `OPENWEATHERMAP_API_KEY` in `.env` before `start-services.sh`
-- **ngrok** — for the local / simulated flow only
-- Funded deployer key on Coston2 (and WPT for `test.sh` payouts) — [faucet](https://faucet.flare.network/coston2)
-- **VPN** — only for Coston (VPN-gated indexer)
-
-## Indexer DB credentials
-
-The `ext-proxy` reads Flare's indexer DB. Create the chain-specific docker config (gitignored) from the example:
-
-```bash
-cp config/proxy/extension_proxy.coston2.docker.toml.example \
-   config/proxy/extension_proxy.coston2.docker.toml
-```
-
-Fill `[db]` per chain — see the example file and the sign extension doc for Coston2/Coston host credentials. Wrong or missing DB config causes `test.sh` to fail the round-trip.
+- A **reserved-domain tunnel** — an ngrok static domain or a named `cloudflared`
+  tunnel. Do **not** use a rotating free tunnel (plain `ngrok http`, or
+  `cloudflared tunnel --url` quick tunnels): Coston2 data providers push to the
+  URL registered on-chain, and a rotated hostname leaves the TEE machine stuck
+  at `INITIALIZED` with a dead URL. If the tunnel does rotate, update
+  `EXT_PROXY_URL` and re-run `post-build.sh`.
+- Funded deployer key on Coston2 — [faucet](https://faucet.flare.network/)
+- Coston2 indexer DB credentials — request via
+  [Flare support](https://flare.network/resources/technical-support) or
+  [@flare_network](https://x.com/flare_network); credentials in older
+  docs/examples are dead.
 
 ## Repository layout
 
-No sibling `tee-node` / `tee-proxy` repos required. The extension `Dockerfile`, root `go.mod`, and `tools/` pull pinned versions from GitHub (`tee-node v0.0.20`, `tee-proxy v0.0.17` in `tools/go.sum`).
+No sibling `tee-node` / `tee-proxy` repos required — `go.mod` / `tools/go.mod`
+pull versioned releases from GitHub.
 
 ```text
-extensions/weather-insurance/
+veilbidding/
 ├── cmd/ internal/ pkg/     # TEE extension (Go)
-├── tools/                  # deploy, register-tee, run-test
-├── contracts/              # WeatherInsurance (InstructionSender)
+├── tools/                  # deploy, register-tee, run-test, settle
+├── contracts/              # VeilBidding (InstructionSender)
 ├── scripts/
 └── config/coston2/deployed-addresses.json
 ```
 
 ## 1. Configure environment
-
-Copy and edit chain templates (or start from `.env.example`):
 
 ```bash
 cp .env.example .env.coston2
@@ -56,15 +51,20 @@ Set at minimum:
 |----------|--------|
 | `DEPLOYMENT_PRIVATE_KEY` | Funded key, no `0x` prefix |
 | `INITIAL_OWNER` | Address from that key |
-| `OPENWEATHERMAP_API_KEY` | From [openweathermap.org](https://openweathermap.org/api) |
-| `PAY_TOKEN` | Coston2 WPT: `0x53192e788991AD96bC180249B15AefB94E597dD1` |
 
 Activate:
 
 ```bash
 bash ./scripts/use-chain.sh coston2          # deployed
-bash ./scripts/use-chain.sh local coston2  # local simulated
+bash ./scripts/use-chain.sh local coston2    # local simulated
 ```
+
+> **Gotcha:** Foundry's `cast`/`forge` auto-load this directory's `.env` and
+> map a `CHAIN` var to their own `--chain` flag. Our `CHAIN=coston2` doesn't
+> match `cast`'s alias table (it wants `flare-coston2`), so any manual
+> `cast call`/`cast send` from inside this repo needs an explicit
+> `--chain flare-coston2` override or it errors with
+> `invalid value 'coston2' for '--chain'`.
 
 ## 2. Register extension on-chain
 
@@ -72,15 +72,23 @@ bash ./scripts/use-chain.sh local coston2  # local simulated
 bash ./scripts/pre-build.sh
 ```
 
-Deploys `WeatherInsurance`, registers the extension, writes `config/extension.env`.
+Deploys `VeilBidding`, registers the extension, writes `config/extension.env`
+(`EXTENSION_ID` + `INSTRUCTION_SENDER`). This step is pure on-chain contract
+calls — no Docker or tunnel needed yet, and it's worth confirming it works
+before touching anything else, since it isolates on-chain issues from
+TEE/proxy issues.
 
-Policy location is chosen at buy time (City,CC geocoded to lat/lon). After contract changes, re-run `pre-build.sh` and copy the new ABI into `frontend/lib/abi/weatherInsurance.json` (or run `scripts/generate-bindings.sh` and `jq` as in that script).
-
-Then wire the pay token (before Docker):
-
-```bash
-bash ./scripts/extension-setup.sh
-```
+> **Gotcha:** if `FlareTeeManager` is ever redeployed, existing registrations
+> are wiped. Check `config/coston2/deployed-addresses.json`'s
+> `FlareTeeManager` address against Flare's current announcement before
+> debugging anything else — a stale address is the most common cause of
+> `FunctionNotFound` or `register()` reverts. If it did change, re-run
+> `pre-build.sh` for a fresh `EXTENSION_ID`; if your address already matches
+> current, your registration should still be valid — confirm with:
+> ```bash
+> cast call <FlareTeeManager> "getTeeExtensionInstructionsSender(uint256)(address)" <extensionId> \
+>   --rpc-url https://coston2-api.flare.network/ext/C/rpc --chain flare-coston2
+> ```
 
 ## 3. Register TEE (deployed path)
 
@@ -88,17 +96,16 @@ After devops provides `EXT_PROXY_URL`, update `.env.coston2` and re-run `use-cha
 
 ```bash
 bash ./scripts/post-build.sh
-bash ./scripts/extension-post-setup.sh   # setTeeAddress on WeatherInsurance
-bash ./scripts/test.sh
+bash ./scripts/extension-post-setup.sh   # setTeeAddress on VeilBidding
 ```
 
 `post-build.sh` uses `register-tee -command rRap` (load-bearing for re-runs).
 
 ---
 
-## Local / simulated deployment (Docker + ngrok)
+## Local / simulated deployment (Docker + tunnel)
 
-Real Coston2 chain + simulated TEE in Docker, public proxy via ngrok. No GCP VM.
+Real Coston2 chain + simulated TEE in Docker, public proxy via a tunnel. No GCP VM.
 
 ### What `local` changes in `.env`
 
@@ -107,7 +114,7 @@ Real Coston2 chain + simulated TEE in Docker, public proxy via ngrok. No GCP VM.
 | Variable | Deployed | Local / simulated |
 |----------|----------|-------------------|
 | `SIMULATED_TEE` | `false` | `true` |
-| `EXT_PROXY_URL` | devops URL | your ngrok `https://…` URL |
+| `EXT_PROXY_URL` | devops URL | your reserved tunnel `https://…` URL |
 
 `LOCAL_MODE` stays **`false`**. `MODE=1` is injected by `docker-compose.yaml` at runtime.
 
@@ -119,75 +126,117 @@ Real Coston2 chain + simulated TEE in Docker, public proxy via ngrok. No GCP VM.
    bash ./scripts/use-chain.sh local coston2
    ```
 
-2. **Pre-build + extension setup**
+2. **Pre-build**
 
    ```bash
    bash ./scripts/pre-build.sh
-   bash ./scripts/extension-setup.sh
    ```
 
-3. **ngrok** (host port `6674` → proxy `6664`)
+3. **Tunnel** (separate terminal) — host port `6674` → proxy `6664`. Start it
+   *before* Docker, using a domain that won't change on restart:
 
    ```bash
-   ngrok http 6674
+   ngrok http 6674 --domain=<your-reserved-domain>
+   # or: cloudflared tunnel run <your-named-tunnel>
    ```
 
-   Set `EXT_PROXY_URL` in `.env.local.coston2` to the `Forwarding` HTTPS URL, then:
+   Set `EXT_PROXY_URL` in `.env.local.coston2` to that URL, then:
 
    ```bash
    bash ./scripts/use-chain.sh local coston2
    ```
 
-4. **Indexer DB** — create `config/proxy/extension_proxy.coston2.docker.toml` (see above).
+4. **Indexer DB** — create `config/proxy/extension_proxy.coston2.docker.toml`
+   from the `.example` file and fill in `[db]` with credentials from Flare
+   support.
 
-5. **Start stack**
+   > **macOS Docker Desktop gotcha:** bind-mounting a single host file to
+   > `ext-proxy` can fail with `open ./config/config.toml: operation not
+   > permitted` (EPERM) even though `stat` and Unix permissions look correct —
+   > seen with both the gRPC-FUSE and VirtioFS file-sharing backends. If you
+   > hit this, populate a named Docker volume instead of a host bind mount:
+   > ```bash
+   > docker volume create tee_proxy_config
+   > docker run --rm -i -v tee_proxy_config:/data alpine sh -c "cat > /data/config.toml" \
+   >   < config/proxy/extension_proxy.coston2.docker.toml
+   > ```
+   > and mount `tee_proxy_config:/app/config` in `docker-compose.yaml`'s
+   > `ext-proxy` service instead of the bind-mounted file path (this repo's
+   > `docker-compose.yaml` is already set up this way).
+
+5. **Start the stack**
 
    ```bash
-   bash ./scripts/start-services.sh
+   docker compose -f docker-compose.yaml -f docker-compose.coston2.yaml up -d --build
    ```
 
-6. **Verify `/info`** (simulated `codeHash` ≈ `0x194844cf…`)
+   If a container was ever created against a network/volume that's since been
+   removed or renamed, a stale network reference can make it fail to start
+   even after retries — `docker compose down` then `up -d` again forces a
+   clean recreate.
+
+6. **Verify `/info`**
 
    ```bash
    curl -s "$EXT_PROXY_URL/info" | jq '.machineData'
    ```
 
-7. **Register TEE and test**
+   Simulated TEE: `codeHash` = `0x194844cf…`, `extensionId` matches
+   `config/extension.env`, `initialOwner` matches your address.
+
+7. **Register TEE**
 
    ```bash
    bash ./scripts/post-build.sh
-   bash ./scripts/extension-post-setup.sh
-   bash ./scripts/test.sh
    ```
 
-8. **Tear down**
+   A healthy Coston2 stack reaches `PRODUCTION` status within seconds — the
+   availability check is cosigned live by real Coston2 data providers. If
+   registration hangs or the availability check keeps failing, suspect a
+   stale `tee-node`/`tee-proxy` version first (see troubleshooting below)
+   before assuming it's a chain-side problem.
+
+8. **Run the end-to-end test**
 
    ```bash
-   bash ./scripts/stop-services.sh
+   cd tools
+   go run ./cmd/run-test -instructionSender <deployed-address> -amount 18000 -deadlineSecs 30
    ```
 
-> Re-run after code changes: keep ngrok up, `start-services.sh`, then `post-build.sh` / `test.sh` as needed.
+   Sequence: `setExtensionId()` → register the TEE address on-chain → create a
+   listing → seal a bid (ECIES-encrypted under the live TEE's public key) →
+   wait for the deadline → `requestReveal` → poll the proxy for the TEE's
+   signed result → `submitRevealResult` → assert the on-chain winner and
+   amount match what was sealed.
 
-## End-to-end test
+9. **Tear down**
 
-`test.sh` runs `tools/cmd/run-test`: fund pool, private buy, settlement against OpenWeatherMap, assert payout. The deployer needs WPT balance on Coston2.
+   ```bash
+   docker compose -f docker-compose.yaml -f docker-compose.coston2.yaml down
+   ```
 
 ## Troubleshooting
 
 | Issue | Fix |
 |-------|-----|
-| `OPENWEATHERMAP_API_KEY is not set` in TEE logs | Set in `.env`, re-run `start-services.sh` |
-| `Post "http://localhost:7702/action": context deadline exceeded` on settle | tee-node allows only **2s** for synchronous extension responses; settlement calls OpenWeatherMap One Call `day_summary` (often slower). Rebuild `extension-tee` after pulling fixes (async SETTLE/FETCH + longer OWM timeout). Ensure the API key has a [One Call subscription](https://openweathermap.org/api/one-call-3). |
-| `test.sh` round-trip fails | Check indexer `[db]` in docker proxy config; confirm `EXT_PROXY_URL` is ngrok HTTPS (not localhost) on Coston2 |
-| `MachineManager.TooMany()` | `INSTRUCTION_SENDER` / `EXTENSION_ID` mismatch — re-run `pre-build.sh --force` only if intentional |
-| `code hashes do not match` | `SIMULATED_TEE` must match TEE `MODE` (simulated: `SIMULATED_TEE=true`, compose `MODE=1`) |
+| `cast call`/`cast send` errors `invalid value 'coston2' for '--chain'` | Pass `--chain flare-coston2` explicitly — `cast` auto-loads this directory's `.env` `CHAIN` var and doesn't recognize our alias for it. |
+| `ext-proxy` panics with `open ./config/config.toml: operation not permitted` | macOS Docker file-sharing bug — use the named-volume workaround in step 4 above instead of a bind mount. |
+| `ext-proxy` panics `dial tcp: lookup <indexer-db-host>: no such host` | Indexer credentials/host not filled in `[db]` — request them from Flare support. |
+| Availability check never completes / TEE stuck at `INITIALIZED` | Pull latest `tee-node`/`tee-proxy`: `go get github.com/flare-foundation/tee-node@develop github.com/flare-foundation/tee-proxy@develop` (root and `tools/` modules), then `go mod tidy`. Older versions get every data-provider vote rejected. |
+| `MachineManager.TooMany()` | `config/extension.env`'s extension ID doesn't match the on-chain TEE record — usually after a `FlareTeeManager` redeploy. Re-run `pre-build.sh` for a fresh extension ID. |
+| `InvalidGovernanceHash` | `GOVERNANCE_SIGNERS`/`GOVERNANCE_THRESHOLD` don't match the governance hash the TEE node signed; leave both unset for the default deployer-only setup, or ensure `.env` and the container agree, then re-run `post-build.sh`. |
+| `code hashes do not match` | `SIMULATED_TEE` and container `MODE` disagree; use `SIMULATED_TEE=true` with `MODE=1` (injected by Docker Compose). |
+| TEE registration times out | `docker compose restart ext-proxy`; confirm Coston2 data providers are actually live before assuming the problem is client-side. |
+| Tunnel URL changed | Update `EXT_PROXY_URL`, re-run `use-chain.sh`, restart the tunnel if needed, restart the Docker stack, re-run `post-build.sh`. |
 
 ### Fresh clone without re-minting
 
 ```bash
 bash ./scripts/generate-bindings.sh
 # Recover EXTENSION_ID from curl $EXT_PROXY_URL/info
-# Recover INSTRUCTION_SENDER via cast call FlareTeeManager getTeeExtensionInstructionsSender
+# Recover INSTRUCTION_SENDER via:
+#   cast call <FlareTeeManager> "getTeeExtensionInstructionsSender(uint256)(address)" <extensionId> \
+#     --rpc-url https://coston2-api.flare.network/ext/C/rpc --chain flare-coston2
 ```
 
-Then write `config/extension.env` and run `post-build.sh` / `test.sh`.
+Then write `config/extension.env` and re-run `post-build.sh` / the end-to-end test.

@@ -48,22 +48,7 @@ log "EXTENSION_ID:       ${EXTENSION_ID:-<not set>}"
 log "INSTRUCTION_SENDER: ${INSTRUCTION_SENDER:-<not set>}"
 log "CHAIN_URL:          ${CHAIN_URL:-<not set>}"
 
-# --- weather-insurance: set the ERC-20 pay token (if configured) ---
-# Premiums and payouts are denominated in PAY_TOKEN. Set it on the contract now
-# so the deployed contract is ready for buyPolicy/fundPool. Pool funding is left
-# to the owner (it needs an ERC-20 approve + balance) — see the run-test demo.
-# The OpenWeatherMap API key is provisioned via OPENWEATHERMAP_API_KEY in the
-# container env, not on-chain.
-
-if [[ -n "${PAY_TOKEN:-}" ]]; then
-    : "${INSTRUCTION_SENDER:?INSTRUCTION_SENDER not set — run pre-build.sh first}"
-    : "${CHAIN_URL:?CHAIN_URL not set}"
-    : "${DEPLOYMENT_PRIVATE_KEY:?DEPLOYMENT_PRIVATE_KEY not set}"
-    log "Setting pay token $PAY_TOKEN on WeatherInsurance ($INSTRUCTION_SENDER)..."
-    cast_env_tx cast send --rpc-url "$CHAIN_URL" --chain flare-coston2 \
-        "$INSTRUCTION_SENDER" "setPayToken(address)" "$PAY_TOKEN" \
-        --private-key "$DEPLOYMENT_PRIVATE_KEY" >/dev/null
-    log "Pay token set."
-else
-    log "PAY_TOKEN not set — skipping setPayToken (set it later via cast or run-test)."
-fi
+# VeilBidding needs no auxiliary setup before Docker Compose starts (no linked
+# library, no pay token) — this hook is a no-op for now. See the header comment
+# above for what to add here if a future extension needs pre-startup wiring.
+log "No pre-Docker setup required for VeilBidding — skipping."

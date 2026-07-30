@@ -1,6 +1,6 @@
-import { useMemo, useState } from "react";
-import { Button, Group, SimpleGrid, Stack, Text, Title } from "@mantine/core";
-import { LuPlus, LuGavel } from "react-icons/lu";
+import { useEffect, useMemo, useState } from "react";
+import { Button, Group, Loader, SimpleGrid, Stack, Text, Title } from "@mantine/core";
+import { LuPlus, LuGavel, LuRefreshCw } from "react-icons/lu";
 import { useDisclosure } from "@mantine/hooks";
 
 import BidCard from "../components/bids/BidCard";
@@ -10,11 +10,53 @@ import PlaceBidDrawer from "../components/bids/PlaceBidDrawer";
 import BidDetailDrawer from "../components/bids/BidDetailDrawer";
 import EmptyState from "../components/common/EmptyState";
 
-import { bids as initialBids, MY_WALLET } from "../data/bids";
+import { bids as seedBids, MY_WALLET } from "../data/bids";
 import { getBidStatus } from "../utils/bids";
+import { useWallet } from "../context/useWallet";
+import { fetchAllListings, fetchBidders, isContractConfigured } from "../contracts/VeilBidding";
+
+// Listing metadata (title, description, item type, image) isn't stored
+// on-chain — only the sealed-bid mechanics are. This app has no backend/
+// indexer to host that metadata, so the *creating* browser caches it in
+// localStorage, keyed by on-chain listing id. Any listing discovered purely
+// from chain events (e.g. opened from a different browser/account) falls
+// back to a generic placeholder — the contract state itself (deadline,
+// bidders, reveal result) is always authoritative regardless.
+const METADATA_KEY = "veilpay:bid-metadata";
+
+function loadMetadataCache() {
+  try {
+    return JSON.parse(localStorage.getItem(METADATA_KEY)) ?? {};
+  } catch {
+    return {};
+  }
+}
+
+function saveMetadata(listingId, metadata) {
+  const cache = loadMetadataCache();
+  cache[listingId] = metadata;
+  localStorage.setItem(METADATA_KEY, JSON.stringify(cache));
+}
+
+function placeholderMetadata(listingId) {
+  return {
+    title: `Sealed Listing #${listingId}`,
+    description: "On-chain sealed-bid listing — metadata not available in this browser.",
+    itemType: "file",
+    previewUrl: "",
+    ipfsHash: "",
+    minBid: 0,
+    token: "FLR",
+  };
+}
 
 export default function Bids() {
-  const [bids, setBids] = useState(initialBids);
+  const { address } = useWallet();
+
+  const [bids, setBids] = useState(seedBids);
+  const [chainLoading, setChainLoading] = useState(false);
+  const [chainError, setChainError] = useState(null);
+  const [refreshTick, setRefreshTick] = useState(0);
 
   const [search, setSearch] = useState("");
   const [type, setType] = useState("All");
@@ -24,6 +66,92 @@ export default function Bids() {
   const [newOpened, { open: openNew, close: closeNew }] = useDisclosure(false);
   const [placeBidId, setPlaceBidId] = useState(null);
   const [detailBidId, setDetailBidId] = useState(null);
+
+  // Discover every listing that exists on-chain (created by any account, in
+  // any browser) and merge it into the display list — this is what makes a
+  // listing created from one account visible and biddable from another.
+  useEffect(() => {
+    if (!isContractConfigured()) return;
+    let cancelled = false;
+
+    (async () => {
+      setChainLoading(true);
+      setChainError(null);
+      try {
+        const listings = await fetchAllListings();
+        const metadataCache = loadMetadataCache();
+
+        const merged = await Promise.all(
+          listings.map(async (listing) => {
+            const listingId = listing.listingId.toString();
+            const metadata = metadataCache[listingId] ?? placeholderMetadata(listingId);
+
+            const bidders = await fetchBidders(listing.listingId).catch(() => []);
+
+            const participants = bidders.map((wallet, index) => ({
+              id: index + 1,
+              wallet,
+              amount: 0,
+              token: metadata.token,
+              submittedAt: "On-chain",
+              mine: address ? wallet.toLowerCase() === address.toLowerCase() : false,
+              withdrawn: false,
+            }));
+
+            return {
+              id: `chain-${listingId}`,
+              onChainListingId: listingId,
+              creator: listing.creator,
+              deadline: new Date(Number(listing.deadline) * 1000).toISOString(),
+              txHash: listing.txHash,
+              participants,
+              ...metadata,
+            };
+          })
+        );
+
+        if (cancelled) return;
+
+        setBids((prev) => {
+          // Keep any purely-local seed/demo bids (no onChainListingId) and
+          // replace/merge everything else with the freshly fetched on-chain set.
+          const localOnly = prev.filter((b) => !b.onChainListingId);
+          const byId = new Map(merged.map((b) => [b.onChainListingId, b]));
+
+          // Preserve richer local metadata for a listing this session already
+          // knew about (e.g. one just created) if the fetch's placeholder
+          // would otherwise clobber it.
+          for (const existing of prev) {
+            if (existing.onChainListingId && byId.has(existing.onChainListingId)) {
+              const fetched = byId.get(existing.onChainListingId);
+              byId.set(existing.onChainListingId, {
+                ...fetched,
+                title: existing.title ?? fetched.title,
+                description: existing.description ?? fetched.description,
+                itemType: existing.itemType ?? fetched.itemType,
+                previewUrl: existing.previewUrl ?? fetched.previewUrl,
+                ipfsHash: existing.ipfsHash ?? fetched.ipfsHash,
+                minBid: existing.minBid || fetched.minBid,
+                token: existing.token ?? fetched.token,
+              });
+            }
+          }
+
+          return [...localOnly, ...byId.values()];
+        });
+      } catch (err) {
+        if (!cancelled) setChainError(err?.message ?? "Failed to fetch on-chain listings.");
+      } finally {
+        if (!cancelled) setChainLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [refreshTick, address]);
+
+  const refresh = () => setRefreshTick((t) => t + 1);
 
   const filtered = useMemo(() => {
     const list = bids
@@ -38,12 +166,26 @@ export default function Bids() {
   }, [bids, search, type, status, sort]);
 
   const handleCreate = (data) => {
-    const id = `BID-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
+    const onChainListingId = data.onChainListingId;
 
-    setBids((prev) => [
-      { id, creator: MY_WALLET, participants: [], ...data },
-      ...prev,
-    ]);
+    if (onChainListingId) {
+      saveMetadata(onChainListingId, {
+        title: data.title,
+        description: data.description,
+        itemType: data.itemType,
+        previewUrl: data.previewUrl,
+        ipfsHash: data.ipfsHash,
+        minBid: data.minBid,
+        token: data.token,
+      });
+    }
+
+    const id = onChainListingId ? `chain-${onChainListingId}` : `BID-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
+
+    setBids((prev) => [{ id, creator: MY_WALLET, participants: [], ...data }, ...prev]);
+
+    // Pick up the real on-chain state (bidders, deadline) on the next fetch.
+    if (onChainListingId) refresh();
   };
 
   const handlePlaceBid = ({ amount, token, wallet, termsCommitment, txHash }) => {
@@ -70,6 +212,7 @@ export default function Bids() {
           : b
       )
     );
+    refresh();
   };
 
   const handleWithdraw = (bidId, participantId) => {
@@ -103,10 +246,28 @@ export default function Bids() {
             </Text>
           </div>
 
-          <Button leftSection={<LuPlus size={15} />} onClick={openNew}>
-            New Bid
-          </Button>
+          <Group gap="sm">
+            <Button
+              variant="subtle"
+              size="sm"
+              leftSection={chainLoading ? <Loader size={13} /> : <LuRefreshCw size={15} />}
+              onClick={refresh}
+              disabled={chainLoading}
+            >
+              Refresh
+            </Button>
+
+            <Button leftSection={<LuPlus size={15} />} onClick={openNew}>
+              New Bid
+            </Button>
+          </Group>
         </Group>
+
+        {chainError && (
+          <Text size="sm" style={{ color: "var(--danger)" }}>
+            {chainError}
+          </Text>
+        )}
 
         <BidFilters
           search={search}

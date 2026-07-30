@@ -20,8 +20,13 @@ import { MY_WALLET } from "../../data/bids";
 import { useWallet } from "../../context/useWallet";
 import { getVeilBiddingContract, getBrowserSigner, isContractConfigured } from "../../contracts/VeilBidding";
 import { computeTermsCommitment, encryptBidTerms, randomNonce, toChainAmount } from "../../utils/sealedBid";
+import { fetchLiveTeePublicKey } from "../../lib/tee/ecies";
+import { isProxyConfigured } from "../../lib/tee/proxy";
 
-const TEE_PUBLIC_KEY = import.meta.env.VITE_TEE_PUBLIC_KEY;
+// Static fallback for the self-contained (non-real-registry) contract path —
+// the real, registered TEE's public key is fetched live from the extension
+// proxy instead, since it's only known once that TEE machine starts up.
+const STATIC_TEE_PUBLIC_KEY = import.meta.env.VITE_TEE_PUBLIC_KEY;
 
 export default function PlaceBidDrawer({ opened, onClose, bid, onSubmit }) {
   const { address } = useWallet();
@@ -63,22 +68,25 @@ export default function PlaceBidDrawer({ opened, onClose, bid, onSubmit }) {
       return;
     }
 
-    if (!TEE_PUBLIC_KEY) {
-      setSubmitError("VITE_TEE_PUBLIC_KEY is not set — can't encrypt the sealed bid.");
-      return;
-    }
-
     setSubmitting(true);
     setSubmitError(null);
 
     try {
+      let teePublicKey = STATIC_TEE_PUBLIC_KEY;
+      if (isProxyConfigured()) {
+        teePublicKey = await fetchLiveTeePublicKey();
+      }
+      if (!teePublicKey) {
+        throw new Error("No TEE public key available — set VITE_EXT_PROXY_URL (real TEE) or VITE_TEE_PUBLIC_KEY (demo).");
+      }
+
       const signer = await getBrowserSigner();
       const contract = getVeilBiddingContract(signer);
 
       const chainAmount = toChainAmount(amount);
       const nonce = randomNonce();
       const termsCommitment = computeTermsCommitment({ amount: chainAmount, nonce, bidder: wallet });
-      const encryptedTerms = await encryptBidTerms({ amount: chainAmount, nonce, bidder: wallet }, TEE_PUBLIC_KEY);
+      const encryptedTerms = await encryptBidTerms({ amount: chainAmount, nonce, bidder: wallet }, teePublicKey);
 
       const tx = await contract.submitSealedBid(activeBid.onChainListingId, termsCommitment, encryptedTerms);
       await tx.wait();

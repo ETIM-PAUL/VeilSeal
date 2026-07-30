@@ -1,13 +1,21 @@
 import { useEffect, useState } from "react";
 import { Anchor, Badge, Button, Drawer, Group, Loader, Stack, Text } from "@mantine/core";
-import { LuGavel, LuLock, LuTrophy, LuUndo2, LuShieldCheck, LuExternalLink } from "react-icons/lu";
+import { LuGavel, LuLock, LuTrophy, LuUndo2, LuShieldCheck, LuExternalLink, LuSparkles } from "react-icons/lu";
 
 import BidThumbnail from "./BidThumbnail";
 import { statusColor } from "../../utils/status";
 import { getBidStatus, getWinner, formatCountdown, formatDeadline } from "../../utils/bids";
-import { fetchOnChainListing, isContractConfigured } from "../../contracts/VeilBidding";
+import {
+  fetchOnChainListing,
+  isContractConfigured,
+  getVeilBiddingContract,
+  getBrowserSigner,
+  INSTRUCTION_FEE_WEI,
+} from "../../contracts/VeilBidding";
 import { truncateAddress, explorerTxUrl } from "../../utils/network";
 import { fromChainAmount } from "../../utils/sealedBid";
+import { requestAndRelayReveal } from "../../lib/tee/reveal";
+import { isProxyConfigured } from "../../lib/tee/proxy";
 
 export default function BidDetailDrawer({ opened, onClose, bid: liveBid, onPlaceBid, onWithdraw }) {
   // Keep the last known bid around so the drawer content stays in place
@@ -20,6 +28,11 @@ export default function BidDetailDrawer({ opened, onClose, bid: liveBid, onPlace
 
   const [onChainData, setOnChainData] = useState(null);
   const [onChainLoading, setOnChainLoading] = useState(false);
+  const [refreshTick, setRefreshTick] = useState(0);
+
+  const [revealing, setRevealing] = useState(false);
+  const [revealStepLabel, setRevealStepLabel] = useState("");
+  const [revealError, setRevealError] = useState(null);
 
   const onChainListingId = bid?.onChainListingId;
 
@@ -50,7 +63,23 @@ export default function BidDetailDrawer({ opened, onClose, bid: liveBid, onPlace
     return () => {
       cancelled = true;
     };
-  }, [opened, onChainListingId]);
+  }, [opened, onChainListingId, refreshTick]);
+
+  const handleReveal = async () => {
+    setRevealing(true);
+    setRevealError(null);
+    try {
+      const signer = await getBrowserSigner();
+      const contract = getVeilBiddingContract(signer);
+      await requestAndRelayReveal(contract, onChainListingId, INSTRUCTION_FEE_WEI, setRevealStepLabel);
+      setRefreshTick((t) => t + 1);
+    } catch (err) {
+      setRevealError(err?.reason ?? err?.message ?? "Failed to reveal listing.");
+    } finally {
+      setRevealing(false);
+      setRevealStepLabel("");
+    }
+  };
 
   if (!bid) return null;
 
@@ -127,15 +156,6 @@ export default function BidDetailDrawer({ opened, onClose, bid: liveBid, onPlace
                   </Text>
                 </Group>
 
-                <Group justify="space-between">
-                  <Text size="xs" className="ink-dim">
-                    Result Hash
-                  </Text>
-                  <Text size="xs" className="num ink-faint">
-                    {truncateAddress(onChainData.resultHash)}
-                  </Text>
-                </Group>
-
                 {onChainData.txHash && (
                   <Anchor
                     href={explorerTxUrl(onChainData.txHash)}
@@ -153,10 +173,32 @@ export default function BidDetailDrawer({ opened, onClose, bid: liveBid, onPlace
             )}
 
             {!onChainLoading && onChainData && !onChainData.revealed && (
-              <Text size="xs" className="ink-dim">
-                Sealed bids are committed on Coston2. The TEE settlement watcher
-                will decrypt and reveal the winner once the deadline passes.
-              </Text>
+              <Stack gap={8}>
+                <Text size="xs" className="ink-dim">
+                  Sealed bids are committed on Coston2. Once the deadline
+                  passes, anyone can trigger the reveal — it routes every
+                  sealed bid to the registered TEE, which decrypts them,
+                  determines the winner, and signs the result.
+                </Text>
+
+                {status === "Closed" && isProxyConfigured() && (
+                  <Button
+                    size="xs"
+                    variant="light"
+                    leftSection={<LuSparkles size={13} />}
+                    onClick={handleReveal}
+                    loading={revealing}
+                  >
+                    {revealing ? revealStepLabel || "Revealing…" : "Request & Relay Reveal"}
+                  </Button>
+                )}
+
+                {revealError && (
+                  <Text size="xs" style={{ color: "var(--danger)" }}>
+                    {revealError}
+                  </Text>
+                )}
+              </Stack>
             )}
 
             {!onChainLoading && !onChainData && (

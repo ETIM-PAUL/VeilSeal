@@ -1,11 +1,16 @@
 import { itemTypeMeta } from "../../utils/bids";
+import { ipfsGatewayUrl } from "../../lib/pinata";
 
-export default function BidThumbnail({ itemType, previewUrl, height = 140 }) {
+export default function BidThumbnail({ itemType, previewUrl, ipfsHash, height = 140 }) {
   const meta = itemTypeMeta(itemType);
   const Icon = meta.icon;
 
-  const showsImage = previewUrl && itemType === "image";
-  const showsVideo = previewUrl && itemType === "video";
+  // previewUrl is an explicit override (e.g. the creating browser's freshly
+  // uploaded gateway URL); any browser can otherwise reconstruct it purely
+  // from the on-chain ipfsHash — no off-chain index required.
+  const resolvedUrl = previewUrl || ipfsGatewayUrl(ipfsHash);
+  const showsImage = resolvedUrl && itemType === "image";
+  const showsVideo = resolvedUrl && itemType === "video";
 
   return (
     <div
@@ -25,7 +30,7 @@ export default function BidThumbnail({ itemType, previewUrl, height = 140 }) {
     >
       {showsImage && (
         <img
-          src={previewUrl}
+          src={resolvedUrl}
           alt=""
           style={{ width: "100%", height: "100%", objectFit: "cover" }}
         />
@@ -33,7 +38,7 @@ export default function BidThumbnail({ itemType, previewUrl, height = 140 }) {
 
       {showsVideo && (
         <video
-          src={previewUrl}
+          src={resolvedUrl}
           style={{ width: "100%", height: "100%", objectFit: "cover" }}
           muted
         />

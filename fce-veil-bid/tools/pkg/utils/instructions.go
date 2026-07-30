@@ -143,9 +143,19 @@ func SetTeeAddress(s *support.Support, contractAddr, teeAddr common.Address) err
 	return nil
 }
 
-// CreateListing opens a sealed-bid listing with the given deadline (unix seconds).
-// Returns the new listing ID.
-func CreateListing(s *support.Support, contractAddr common.Address, deadline uint64) (*big.Int, common.Hash, error) {
+// ListingMetadata is the off-chain-authored, on-chain-stored description of
+// a sealed-bid item.
+type ListingMetadata struct {
+	Title       string
+	Description string
+	ItemType    string
+	IpfsHash    string
+	MinBid      *big.Int
+}
+
+// CreateListing opens a sealed-bid listing with the given item metadata and
+// deadline (unix seconds). Returns the new listing ID.
+func CreateListing(s *support.Support, contractAddr common.Address, meta ListingMetadata, deadline uint64) (*big.Int, common.Hash, error) {
 	c, err := veilbidding.NewVeilBidding(contractAddr, s.ChainClient)
 	if err != nil {
 		return nil, common.Hash{}, errors.Errorf("failed to bind contract: %s", err)
@@ -155,9 +165,12 @@ func CreateListing(s *support.Support, contractAddr common.Address, deadline uin
 		return nil, common.Hash{}, errors.Errorf("failed to create transactor: %s", err)
 	}
 
-	tx, err := c.CreateListing(opts, deadline)
+	tx, err := c.CreateListing(opts, meta.Title, meta.Description, meta.ItemType, meta.IpfsHash, meta.MinBid, deadline)
 	if err != nil {
-		return nil, common.Hash{}, errors.Errorf("createListing: %s (%s)", err, simulateRevert(s, contractAddr, nil, "createListing", deadline))
+		return nil, common.Hash{}, errors.Errorf(
+			"createListing: %s (%s)", err,
+			simulateRevert(s, contractAddr, nil, "createListing", meta.Title, meta.Description, meta.ItemType, meta.IpfsHash, meta.MinBid, deadline),
+		)
 	}
 	receipt, err := bind.WaitMined(context.Background(), s.ChainClient, tx)
 	if err != nil {

@@ -26,8 +26,9 @@ import {
 } from "react-icons/lu";
 
 import BidThumbnail from "./BidThumbnail";
-import { BID_TOKENS, ITEM_TYPES, formatDeadline, mockCid } from "../../utils/bids";
+import { BID_TOKENS, ITEM_TYPES, formatDeadline } from "../../utils/bids";
 import { getVeilBiddingContract, getBrowserSigner, isContractConfigured } from "../../contracts/VeilBidding";
+import { uploadFileToPinata, ipfsGatewayUrl, isPinataConfigured } from "../../lib/pinata";
 
 const initial = {
   title: "",
@@ -35,6 +36,7 @@ const initial = {
   itemType: "image",
   fileName: "",
   previewUrl: "",
+  ipfsHash: "",
   deadline: null,
   minBid: undefined,
   token: "FLR",
@@ -43,6 +45,8 @@ const initial = {
 export default function NewBidDrawer({ opened, onClose, onCreate }) {
   const [step, setStep] = useState(0);
   const [form, setForm] = useState(initial);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState(null);
   const [publishing, setPublishing] = useState(false);
   const [publishError, setPublishError] = useState(null);
   const fileInputRef = useRef(null);
@@ -54,19 +58,32 @@ export default function NewBidDrawer({ opened, onClose, onCreate }) {
   const reset = () => {
     setForm(initial);
     setStep(0);
+    setUploadError(null);
     setPublishError(null);
     onClose();
   };
 
-  const handleFile = (e) => {
+  const handleFile = async (e) => {
     const file = e.currentTarget.files?.[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      setForm((f) => ({ ...f, fileName: file.name, previewUrl: reader.result }));
-    };
-    reader.readAsDataURL(file);
+    if (!isPinataConfigured()) {
+      setUploadError("VITE_PINATA_JWT isn't set — add it to .env to upload files.");
+      return;
+    }
+
+    setUploading(true);
+    setUploadError(null);
+    setForm((f) => ({ ...f, fileName: file.name, previewUrl: "", ipfsHash: "" }));
+
+    try {
+      const cid = await uploadFileToPinata(file);
+      setForm((f) => ({ ...f, ipfsHash: cid, previewUrl: ipfsGatewayUrl(cid) }));
+    } catch (err) {
+      setUploadError(err?.message ?? "Failed to upload file to IPFS.");
+    } finally {
+      setUploading(false);
+    }
   };
 
   const accept =
@@ -92,7 +109,14 @@ export default function NewBidDrawer({ opened, onClose, onCreate }) {
       const contract = getVeilBiddingContract(signer);
 
       const deadlineUnix = Math.floor(form.deadline.getTime() / 1000);
-      const tx = await contract.createListing(deadlineUnix);
+      const tx = await contract.createListing(
+        form.title,
+        form.description,
+        form.itemType,
+        form.ipfsHash,
+        BigInt(Math.round(form.minBid)),
+        deadlineUnix
+      );
       const receipt = await tx.wait();
 
       const createdEvent = receipt.logs
@@ -112,7 +136,7 @@ export default function NewBidDrawer({ opened, onClose, onCreate }) {
         description: form.description,
         itemType: form.itemType,
         previewUrl: form.previewUrl,
-        ipfsHash: mockCid(),
+        ipfsHash: form.ipfsHash,
         deadline: form.deadline.toISOString(),
         minBid: form.minBid,
         token: form.token,
@@ -127,7 +151,8 @@ export default function NewBidDrawer({ opened, onClose, onCreate }) {
     }
   };
 
-  const canContinue = form.title.trim() && form.deadline && form.minBid > 0;
+  const canContinue =
+    form.title.trim() && form.deadline && form.minBid > 0 && form.ipfsHash && !uploading;
 
   return (
     <Drawer opened={opened} onClose={reset} position="right" size="xl" title="Create Bid Listing">
@@ -162,7 +187,7 @@ export default function NewBidDrawer({ opened, onClose, onCreate }) {
 
                 <div>
                   <Text size="sm" fw={500} mb={6}>
-                    Upload Item
+                    Upload Item (IPFS via Pinata)
                   </Text>
 
                   <input
@@ -177,13 +202,26 @@ export default function NewBidDrawer({ opened, onClose, onCreate }) {
                     variant="light"
                     leftSection={<LuUpload size={15} />}
                     onClick={() => fileInputRef.current?.click()}
+                    loading={uploading}
                   >
                     {form.fileName ? "Replace File" : "Choose File"}
                   </Button>
 
                   {form.fileName && (
                     <Text className="caption" mt={6}>
-                      {form.fileName}
+                      {uploading ? `Uploading ${form.fileName}...` : form.fileName}
+                    </Text>
+                  )}
+
+                  {form.ipfsHash && (
+                    <Text size="xs" className="ink-faint num" mt={4}>
+                      ipfs://{form.ipfsHash}
+                    </Text>
+                  )}
+
+                  {uploadError && (
+                    <Text size="sm" mt={6} style={{ color: "var(--danger)" }}>
+                      {uploadError}
                     </Text>
                   )}
                 </div>
@@ -268,6 +306,13 @@ export default function NewBidDrawer({ opened, onClose, onCreate }) {
             <Group justify="space-between">
               <Text c="dimmed">Deadline</Text>
               <Text fw={600}>{form.deadline ? formatDeadline(form.deadline) : "—"}</Text>
+            </Group>
+
+            <Group justify="space-between" wrap="nowrap">
+              <Text c="dimmed">IPFS CID</Text>
+              <Text fw={600} className="num" style={{ textAlign: "right" }} lineClamp={1}>
+                {form.ipfsHash}
+              </Text>
             </Group>
 
             <Button leftSection={<LuGavel size={15} />} onClick={next}>

@@ -57,13 +57,20 @@ contract VeilBidding {
 
     // --- Listing state ---
 
-    /// @notice A sealed-bid auction listing.
+    /// @notice A sealed-bid auction listing. Item metadata (title, description,
+    /// type, IPFS link, minimum bid) is stored on-chain so any client can
+    /// render a listing from chain state alone — no off-chain index required.
     struct Listing {
         address creator;
         uint64 deadline;      // bidding closes, reveal opens
         bool revealed;
         address winner;
         uint256 winningAmount; // only the winning amount is ever revealed on-chain
+        string title;
+        string description;
+        string itemType;      // "image" | "video" | "audio" | "file"
+        string ipfsHash;      // Pinata/IPFS CID of the uploaded item
+        uint256 minBid;
     }
 
     /// @notice A bidder's sealed bid: an on-chain commitment plus an ECIES
@@ -91,7 +98,16 @@ contract VeilBidding {
     mapping(uint256 => address[]) public bidders;
     mapping(uint256 => mapping(address => SealedBid)) public sealedBids;
 
-    event ListingCreated(uint256 indexed listingId, address indexed creator, uint64 deadline);
+    event ListingCreated(
+        uint256 indexed listingId,
+        address indexed creator,
+        uint64 deadline,
+        string title,
+        string description,
+        string itemType,
+        string ipfsHash,
+        uint256 minBid
+    );
     event BidSealed(uint256 indexed listingId, address indexed bidder, bytes32 termsCommitment);
     event RevealRequested(uint256 indexed listingId, bytes32 instructionId);
     event BidRevealed(uint256 indexed listingId, address indexed winner, uint256 winningAmount);
@@ -139,9 +155,17 @@ contract VeilBidding {
 
     // --- Listing lifecycle ---
 
-    /// @notice Create a sealed-bid listing with a bidding deadline.
-    function createListing(uint64 _deadline) external returns (uint256 listingId) {
+    /// @notice Create a sealed-bid listing with its item metadata and a bidding deadline.
+    function createListing(
+        string calldata _title,
+        string calldata _description,
+        string calldata _itemType,
+        string calldata _ipfsHash,
+        uint256 _minBid,
+        uint64 _deadline
+    ) external returns (uint256 listingId) {
         require(_deadline > block.timestamp, "deadline must be future");
+        require(bytes(_title).length > 0, "title required");
 
         listingId = ++listingCount;
         listings[listingId] = Listing({
@@ -149,10 +173,15 @@ contract VeilBidding {
             deadline: _deadline,
             revealed: false,
             winner: address(0),
-            winningAmount: 0
+            winningAmount: 0,
+            title: _title,
+            description: _description,
+            itemType: _itemType,
+            ipfsHash: _ipfsHash,
+            minBid: _minBid
         });
 
-        emit ListingCreated(listingId, msg.sender, _deadline);
+        emit ListingCreated(listingId, msg.sender, _deadline, _title, _description, _itemType, _ipfsHash, _minBid);
     }
 
     /// @notice Submit a sealed bid: an on-chain commitment plus an ECIES

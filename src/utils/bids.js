@@ -43,14 +43,3 @@ export function formatDeadline(deadline) {
     timeStyle: "short",
   });
 }
-
-// Fake content-addressed hash so uploaded items look pinned to IPFS,
-// consistent with the mocked tx hashes / wallet addresses used elsewhere.
-export function mockCid() {
-  const chars = "abcdefghijklmnopqrstuvwxyz234567";
-  let out = "bafybei";
-  for (let i = 0; i < 32; i++) {
-    out += chars[Math.floor(Math.random() * chars.length)];
-  }
-  return out;
-}

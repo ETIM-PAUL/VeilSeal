@@ -16,7 +16,7 @@ export default function BidCard({ bid, onOpen }) {
       style={{ padding: 16, cursor: "pointer" }}
       onClick={() => onOpen(bid.id)}
     >
-      <BidThumbnail itemType={bid.itemType} />
+      <BidThumbnail itemType={bid.itemType} previewUrl={bid.previewUrl} ipfsHash={bid.ipfsHash} />
 
       <Group justify="space-between" mt="md" mb={2} align="flex-start" wrap="nowrap">
         <Text fw={600} size="sm" style={{ fontFamily: "var(--font-display)" }}>

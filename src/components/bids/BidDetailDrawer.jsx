@@ -95,7 +95,7 @@ export default function BidDetailDrawer({ opened, onClose, bid: liveBid, onPlace
   return (
     <Drawer opened={opened} onClose={onClose} position="right" size="lg" title={bid.title}>
       <Stack mt="md">
-        <BidThumbnail itemType={bid.itemType} previewUrl={bid.previewUrl} height={180} />
+        <BidThumbnail itemType={bid.itemType} previewUrl={bid.previewUrl} ipfsHash={bid.ipfsHash} height={180} />
 
         <Group justify="space-between" align="flex-start">
           <Text className="caption" maw={420}>

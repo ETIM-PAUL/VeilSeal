@@ -12,6 +12,7 @@ import (
 	"flag"
 	"math/big"
 	"os"
+	"strings"
 	"time"
 
 	"veilbidding/pkg/types"
@@ -51,9 +52,13 @@ func main() {
 	// --- Step 1: setExtensionId ---
 	logger.Infof("Step 1: Setting extension ID...")
 	if err := instrutils.SetExtensionId(s, contractAddr); err != nil {
-		fccutils.FatalWithCause(errors.Errorf("setExtensionId failed — is the extension registered (pre-build)? %s", err))
+		if strings.Contains(err.Error(), "Extension ID already set") {
+			logger.Infof("  Extension ID already set (pre-build already registered it).")
+		} else {
+			fccutils.FatalWithCause(errors.Errorf("setExtensionId failed — is the extension registered (pre-build)? %s", err))
+		}
 	} else {
-		logger.Infof("  Extension ID set (or already was).")
+		logger.Infof("  Extension ID set.")
 	}
 
 	// --- Step 2: register the TEE signing address ---
@@ -74,7 +79,14 @@ func main() {
 	// --- Step 3: create a listing ---
 	deadline := uint64(time.Now().Unix() + *deadlineSecsF)
 	logger.Infof("Step 3: Creating listing (deadline in %ds)...", *deadlineSecsF)
-	listingId, createTx, err := instrutils.CreateListing(s, contractAddr, deadline)
+	meta := instrutils.ListingMetadata{
+		Title:       "E2E Test Listing",
+		Description: "Created by tools/cmd/run-test",
+		ItemType:    "file",
+		IpfsHash:    "",
+		MinBid:      big.NewInt(*amountF),
+	}
+	listingId, createTx, err := instrutils.CreateListing(s, contractAddr, meta, deadline)
 	if err != nil {
 		fccutils.FatalWithCause(errors.Errorf("createListing: %s", err))
 	}

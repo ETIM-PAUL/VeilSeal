@@ -15,41 +15,6 @@ import { getBidStatus } from "../utils/bids";
 import { useWallet } from "../context/useWallet";
 import { fetchAllListings, fetchBidders, isContractConfigured } from "../contracts/VeilBidding";
 
-// Listing metadata (title, description, item type, image) isn't stored
-// on-chain — only the sealed-bid mechanics are. This app has no backend/
-// indexer to host that metadata, so the *creating* browser caches it in
-// localStorage, keyed by on-chain listing id. Any listing discovered purely
-// from chain events (e.g. opened from a different browser/account) falls
-// back to a generic placeholder — the contract state itself (deadline,
-// bidders, reveal result) is always authoritative regardless.
-const METADATA_KEY = "veilpay:bid-metadata";
-
-function loadMetadataCache() {
-  try {
-    return JSON.parse(localStorage.getItem(METADATA_KEY)) ?? {};
-  } catch {
-    return {};
-  }
-}
-
-function saveMetadata(listingId, metadata) {
-  const cache = loadMetadataCache();
-  cache[listingId] = metadata;
-  localStorage.setItem(METADATA_KEY, JSON.stringify(cache));
-}
-
-function placeholderMetadata(listingId) {
-  return {
-    title: `Sealed Listing #${listingId}`,
-    description: "On-chain sealed-bid listing — metadata not available in this browser.",
-    itemType: "file",
-    previewUrl: "",
-    ipfsHash: "",
-    minBid: 0,
-    token: "FLR",
-  };
-}
-
 export default function Bids() {
   const { address } = useWallet();
 
@@ -81,20 +46,17 @@ export default function Bids() {
       setChainError(null);
       try {
         const listings = await fetchAllListings();
-        const metadataCache = loadMetadataCache();
 
         const merged = await Promise.all(
           listings.map(async (listing) => {
             const listingId = listing.listingId.toString();
-            const metadata = metadataCache[listingId] ?? placeholderMetadata(listingId);
-
             const bidders = await fetchBidders(listing.listingId).catch(() => []);
 
             const participants = bidders.map((wallet, index) => ({
               id: index + 1,
               wallet,
               amount: 0,
-              token: metadata.token,
+              token: "FLR",
               submittedAt: "On-chain",
               mine: address ? wallet.toLowerCase() === address.toLowerCase() : false,
               withdrawn: false,
@@ -106,8 +68,13 @@ export default function Bids() {
               creator: listing.creator,
               deadline: new Date(Number(listing.deadline) * 1000).toISOString(),
               txHash: listing.txHash,
+              title: listing.title,
+              description: listing.description,
+              itemType: listing.itemType,
+              ipfsHash: listing.ipfsHash,
+              minBid: Number(listing.minBid),
+              token: "FLR",
               participants,
-              ...metadata,
             };
           })
         );
@@ -145,19 +112,9 @@ export default function Bids() {
     const onChainListingId = data.onChainListingId;
     if (!onChainListingId) return; // creation always goes through the real contract now
 
-    saveMetadata(onChainListingId, {
-      title: data.title,
-      description: data.description,
-      itemType: data.itemType,
-      previewUrl: data.previewUrl,
-      ipfsHash: data.ipfsHash,
-      minBid: data.minBid,
-      token: data.token,
-    });
-
     setBids((prev) => [{ id: `chain-${onChainListingId}`, participants: [], ...data }, ...prev]);
 
-    // Pick up the real on-chain state (bidders, deadline) on the next fetch.
+    // Pick up the authoritative on-chain state (bidders, exact field values) on the next fetch.
     refresh();
   };
 

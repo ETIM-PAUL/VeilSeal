@@ -1,8 +1,9 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import {
   Button,
   Group,
+  SimpleGrid,
   Stack,
   Text,
   TextInput,
@@ -16,6 +17,8 @@ import {
 
 import TransferStats from "../components/transfers/TransferStats";
 import TransferHistory from "../components/transfers/TransferHistory";
+import TransferHistorySkeleton from "../components/transfers/TransferHistorySkeleton";
+import MetricCardSkeleton from "../components/common/MetricCardSkeleton";
 
 import {
   transferStats,
@@ -29,6 +32,13 @@ export default function PrivateTransfers() {
   const [search, setSearch] = useState("");
   const [opened, { open, close }] =
   useDisclosure(false);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const t = setTimeout(() => setLoading(false), 500);
+    return () => clearTimeout(t);
+  }, []);
+
   const filtered = useMemo(() => {
     return transfers.filter((item) =>
       item.recipient
@@ -62,7 +72,15 @@ export default function PrivateTransfers() {
 
       </Group>
 
-      <TransferStats stats={transferStats} />
+      {loading ? (
+        <SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }}>
+          {Array.from({ length: 4 }).map((_, i) => (
+            <MetricCardSkeleton key={i} />
+          ))}
+        </SimpleGrid>
+      ) : (
+        <TransferStats stats={transferStats} />
+      )}
 
       <TextInput
         placeholder="Search recipient..."
@@ -73,7 +91,7 @@ export default function PrivateTransfers() {
         leftSection={<LuSearch size={15} />}
       />
 
-      <TransferHistory transfers={filtered} />
+      {loading ? <TransferHistorySkeleton /> : <TransferHistory transfers={filtered} />}
 
     </Stack>
 

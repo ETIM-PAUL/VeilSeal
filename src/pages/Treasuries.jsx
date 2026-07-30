@@ -1,3 +1,5 @@
+import { useEffect, useState } from "react";
+
 import {
     Stack,
     Group,
@@ -6,18 +8,25 @@ import {
     Button,
     SimpleGrid
   } from "@mantine/core";
-  
+
   import { LuPlus } from "react-icons/lu";
-  
+
   import TreasuryCard from "../components/treasury/TreasuryCard";
+  import TreasuryCardSkeleton from "../components/treasury/TreasuryCardSkeleton";
   import { treasuries } from "../data/mockData";
   import { useDisclosure } from "@mantine/hooks";
   import NewTreasuryDrawer from "../components/treasury/NewTreasuryDrawer";
 
-  
+
   export default function Treasuries() {
       const [opened, { open, close }] =
         useDisclosure(false);
+      const [loading, setLoading] = useState(true);
+
+      useEffect(() => {
+        const t = setTimeout(() => setLoading(false), 500);
+        return () => clearTimeout(t);
+      }, []);
 
     return (
         <>
@@ -45,12 +54,14 @@ import {
                 xl: 3
             }}
             >
-            {treasuries.map((treasury) => (
-                <TreasuryCard
-                key={treasury.id}
-                treasury={treasury}
-                />
-            ))}
+            {loading
+              ? Array.from({ length: 6 }).map((_, i) => <TreasuryCardSkeleton key={i} />)
+              : treasuries.map((treasury) => (
+                  <TreasuryCard
+                  key={treasury.id}
+                  treasury={treasury}
+                  />
+              ))}
             </SimpleGrid>
         </Stack>
         <NewTreasuryDrawer

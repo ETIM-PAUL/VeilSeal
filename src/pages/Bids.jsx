@@ -4,13 +4,13 @@ import { LuPlus, LuGavel, LuRefreshCw } from "react-icons/lu";
 import { useDisclosure } from "@mantine/hooks";
 
 import BidCard from "../components/bids/BidCard";
+import BidCardSkeleton from "../components/bids/BidCardSkeleton";
 import BidFilters from "../components/bids/BidFilters";
 import NewBidDrawer from "../components/bids/NewBidDrawer";
 import PlaceBidDrawer from "../components/bids/PlaceBidDrawer";
 import BidDetailDrawer from "../components/bids/BidDetailDrawer";
 import EmptyState from "../components/common/EmptyState";
 
-import { bids as seedBids, MY_WALLET } from "../data/bids";
 import { getBidStatus } from "../utils/bids";
 import { useWallet } from "../context/useWallet";
 import { fetchAllListings, fetchBidders, isContractConfigured } from "../contracts/VeilBidding";
@@ -53,8 +53,10 @@ function placeholderMetadata(listingId) {
 export default function Bids() {
   const { address } = useWallet();
 
-  const [bids, setBids] = useState(seedBids);
-  const [chainLoading, setChainLoading] = useState(false);
+  // Bids shown here are exclusively what's discovered on-chain — no seed/mock
+  // listings. See the fetch effect below.
+  const [bids, setBids] = useState([]);
+  const [chainLoading, setChainLoading] = useState(() => isContractConfigured());
   const [chainError, setChainError] = useState(null);
   const [refreshTick, setRefreshTick] = useState(0);
 
@@ -68,8 +70,8 @@ export default function Bids() {
   const [detailBidId, setDetailBidId] = useState(null);
 
   // Discover every listing that exists on-chain (created by any account, in
-  // any browser) and merge it into the display list — this is what makes a
-  // listing created from one account visible and biddable from another.
+  // any browser) — this is what makes a listing created from one account
+  // visible and biddable from another.
   useEffect(() => {
     if (!isContractConfigured()) return;
     let cancelled = false;
@@ -111,34 +113,8 @@ export default function Bids() {
         );
 
         if (cancelled) return;
-
-        setBids((prev) => {
-          // Keep any purely-local seed/demo bids (no onChainListingId) and
-          // replace/merge everything else with the freshly fetched on-chain set.
-          const localOnly = prev.filter((b) => !b.onChainListingId);
-          const byId = new Map(merged.map((b) => [b.onChainListingId, b]));
-
-          // Preserve richer local metadata for a listing this session already
-          // knew about (e.g. one just created) if the fetch's placeholder
-          // would otherwise clobber it.
-          for (const existing of prev) {
-            if (existing.onChainListingId && byId.has(existing.onChainListingId)) {
-              const fetched = byId.get(existing.onChainListingId);
-              byId.set(existing.onChainListingId, {
-                ...fetched,
-                title: existing.title ?? fetched.title,
-                description: existing.description ?? fetched.description,
-                itemType: existing.itemType ?? fetched.itemType,
-                previewUrl: existing.previewUrl ?? fetched.previewUrl,
-                ipfsHash: existing.ipfsHash ?? fetched.ipfsHash,
-                minBid: existing.minBid || fetched.minBid,
-                token: existing.token ?? fetched.token,
-              });
-            }
-          }
-
-          return [...localOnly, ...byId.values()];
-        });
+        merged.reverse(); // newest listing first
+        setBids(merged);
       } catch (err) {
         if (!cancelled) setChainError(err?.message ?? "Failed to fetch on-chain listings.");
       } finally {
@@ -167,25 +143,22 @@ export default function Bids() {
 
   const handleCreate = (data) => {
     const onChainListingId = data.onChainListingId;
+    if (!onChainListingId) return; // creation always goes through the real contract now
 
-    if (onChainListingId) {
-      saveMetadata(onChainListingId, {
-        title: data.title,
-        description: data.description,
-        itemType: data.itemType,
-        previewUrl: data.previewUrl,
-        ipfsHash: data.ipfsHash,
-        minBid: data.minBid,
-        token: data.token,
-      });
-    }
+    saveMetadata(onChainListingId, {
+      title: data.title,
+      description: data.description,
+      itemType: data.itemType,
+      previewUrl: data.previewUrl,
+      ipfsHash: data.ipfsHash,
+      minBid: data.minBid,
+      token: data.token,
+    });
 
-    const id = onChainListingId ? `chain-${onChainListingId}` : `BID-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
-
-    setBids((prev) => [{ id, creator: MY_WALLET, participants: [], ...data }, ...prev]);
+    setBids((prev) => [{ id: `chain-${onChainListingId}`, participants: [], ...data }, ...prev]);
 
     // Pick up the real on-chain state (bidders, deadline) on the next fetch.
-    if (onChainListingId) refresh();
+    refresh();
   };
 
   const handlePlaceBid = ({ amount, token, wallet, termsCommitment, txHash }) => {
@@ -232,6 +205,7 @@ export default function Bids() {
 
   const placeBidTarget = bids.find((b) => b.id === placeBidId);
   const detailTarget = bids.find((b) => b.id === detailBidId);
+  const initialLoad = chainLoading && bids.length === 0;
 
   return (
     <>
@@ -280,7 +254,13 @@ export default function Bids() {
           onSort={setSort}
         />
 
-        {filtered.length === 0 ? (
+        {initialLoad ? (
+          <SimpleGrid cols={{ base: 1, sm: 2, xl: 3 }}>
+            {Array.from({ length: 6 }).map((_, i) => (
+              <BidCardSkeleton key={i} />
+            ))}
+          </SimpleGrid>
+        ) : filtered.length === 0 ? (
           <div className="panel">
             <EmptyState
               icon={LuGavel}

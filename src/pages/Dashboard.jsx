@@ -1,9 +1,12 @@
+import { useEffect, useState } from "react";
 import { SimpleGrid, Grid, Stack, Title, Text, Button, Group } from "@mantine/core";
 
 import { LuWallet, LuArrowLeftRight, LuGavel, LuUsers, LuPlus } from "react-icons/lu";
 
 import StatCard from "../components/dashboard/StatCard";
+import StatCardSkeleton from "../components/common/StatCardSkeleton";
 import ActivityFeed from "../components/dashboard/ActivityFeed";
+import ActivityFeedSkeleton from "../components/dashboard/ActivityFeedSkeleton";
 
 import { dashboardStats } from "../data/mockData";
 import { useDisclosure } from "@mantine/hooks";
@@ -15,6 +18,12 @@ const icons = [LuWallet, LuArrowLeftRight, LuGavel, LuUsers];
 export default function Dashboard() {
   const [opened, { open, close }] = useDisclosure(false);
   const [openedP2p, { open: openP2p, close: closeP2p }] = useDisclosure(false);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const t = setTimeout(() => setLoading(false), 500);
+    return () => clearTimeout(t);
+  }, []);
 
   return (
     <>
@@ -33,20 +42,22 @@ export default function Dashboard() {
         </Group>
 
         <SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }}>
-          {dashboardStats.map((stat, index) => (
-            <StatCard
-              key={stat.title}
-              title={stat.title}
-              value={stat.value}
-              description={stat.description}
-              icon={icons[index]}
-            />
-          ))}
+          {loading
+            ? Array.from({ length: 4 }).map((_, i) => <StatCardSkeleton key={i} />)
+            : dashboardStats.map((stat, index) => (
+                <StatCard
+                  key={stat.title}
+                  title={stat.title}
+                  value={stat.value}
+                  description={stat.description}
+                  icon={icons[index]}
+                />
+              ))}
         </SimpleGrid>
 
         <Grid>
           <Grid.Col span={{ base: 12, md: 8 }}>
-            <ActivityFeed />
+            {loading ? <ActivityFeedSkeleton /> : <ActivityFeed />}
           </Grid.Col>
 
           <Grid.Col span={{ base: 12, md: 4 }}>

@@ -17,5 +17,5 @@ services:
 
 networks:
   default:
-    name: ${COMPOSE_NETWORK:-weather-insurance-coston}
+    name: ${COMPOSE_NETWORK:-veilbidding-coston}
     external: false

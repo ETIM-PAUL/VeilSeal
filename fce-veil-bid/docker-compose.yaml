@@ -74,4 +74,4 @@ volumes:
 
 networks:
   default:
-    name: ${COMPOSE_NETWORK:-weather-insurance-default}
+    name: ${COMPOSE_NETWORK:-veilbidding-default}

@@ -1,14 +1,19 @@
 package extension
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"math/big"
 	"net/http"
+	"os"
 
 	"veilbidding/internal/config"
 	"veilbidding/pkg/types"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/instruction"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs"
 	teetypes "github.com/flare-foundation/tee-node/pkg/types"
@@ -17,18 +22,38 @@ import (
 	"github.com/flare-foundation/tee-node/pkg/processorutils"
 )
 
-// Extension is stateless — REVEAL carries every sealed bid's ciphertext
-// inline, so there's nothing to remember between instructions.
+// Extension holds a chain client alongside signPort — SCORE needs to read a
+// wallet's on-chain signals and the listing's minScore directly; REVEAL still
+// needs nothing beyond signPort since every sealed bid's ciphertext is carried
+// inline in the instruction.
 type Extension struct {
 	Server *http.Server
 
 	// signPort is the TEE node's /decrypt endpoint.
 	signPort int
+
+	// chainClient and instructionSender back the SCORE handler's on-chain
+	// reads. Left nil if CHAIN_URL/INSTRUCTION_SENDER aren't set — REVEAL
+	// keeps working regardless, SCORE requests just fail with a clear error.
+	chainClient       *ethclient.Client
+	instructionSender common.Address
 }
 
 // --- DO NOT MODIFY: New(), actionHandler() are boilerplate.
 func New(extensionPort, signPort int) *Extension {
 	e := &Extension{signPort: signPort}
+
+	if chainURL := os.Getenv("CHAIN_URL"); chainURL != "" {
+		client, err := ethclient.Dial(chainURL)
+		if err != nil {
+			logger.Errorf("SCORE handler disabled: dial CHAIN_URL: %v", err)
+		} else {
+			e.chainClient = client
+		}
+	}
+	if sender := os.Getenv("INSTRUCTION_SENDER"); sender != "" {
+		e.instructionSender = common.HexToAddress(sender)
+	}
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /state", e.stateHandler)
@@ -71,7 +96,7 @@ func (e *Extension) processAction(action teetypes.Action) (int, []byte) {
 	}
 }
 
-// processBid routes BID instructions by OPCommand (currently just REVEAL).
+// processBid routes BID instructions by OPCommand (REVEAL or SCORE).
 func (e *Extension) processBid(action teetypes.Action, df *instruction.DataFixed) (int, []byte) {
 	switch {
 	case df.OPCommand == teeutils.ToHash(config.OPCommandReveal):
@@ -79,12 +104,59 @@ func (e *Extension) processBid(action teetypes.Action, df *instruction.DataFixed
 		b, _ := json.Marshal(ar)
 		return http.StatusOK, b
 
+	case df.OPCommand == teeutils.ToHash(config.OPCommandScore):
+		ar := e.processScoreCheck(action, df)
+		b, _ := json.Marshal(ar)
+		return http.StatusOK, b
+
 	default:
 		return http.StatusNotImplemented, []byte(fmt.Sprintf(
-			"unsupported op command: received %s, expected %s (%s)",
-			df.OPCommand.Hex(), teeutils.ToHash(config.OPCommandReveal).Hex(), config.OPCommandReveal,
+			"unsupported op command: received %s, expected %s (%s) or %s (%s)",
+			df.OPCommand.Hex(),
+			teeutils.ToHash(config.OPCommandReveal).Hex(), config.OPCommandReveal,
+			teeutils.ToHash(config.OPCommandScore).Hex(), config.OPCommandScore,
 		))
 	}
+}
+
+// processScoreCheck reads the requesting wallet's on-chain signals (balance,
+// tx count, prior sealed bids on this contract) and the listing's minScore —
+// all independently from chain, never trusting caller input — computes a 0-100
+// score, and returns only whether it clears the bar. The score itself never
+// leaves this function.
+func (e *Extension) processScoreCheck(action teetypes.Action, df *instruction.DataFixed) teetypes.ActionResult {
+	if len(df.OriginalMessage) == 0 {
+		return buildResult(action, df, nil, 0, fmt.Errorf("originalMessage is empty"))
+	}
+	if e.chainClient == nil {
+		return buildResult(action, df, nil, 0, fmt.Errorf("SCORE handler not configured: missing CHAIN_URL"))
+	}
+
+	req, err := structs.Decode[types.ScoreCheckRequest](types.ScoreCheckMessageArg, df.OriginalMessage)
+	if err != nil {
+		return buildResult(action, df, nil, 0, fmt.Errorf("decoding score check request: %v", err))
+	}
+
+	ctx := context.Background()
+
+	minScore, err := listingMinScore(ctx, e.chainClient, e.instructionSender, req.ListingId)
+	if err != nil {
+		return buildResult(action, df, nil, 0, fmt.Errorf("reading listing minScore: %v", err))
+	}
+
+	score, err := computeScore(ctx, e.chainClient, e.instructionSender, req.Bidder)
+	if err != nil {
+		return buildResult(action, df, nil, 0, fmt.Errorf("computing wallet score: %v", err))
+	}
+
+	eligible := big.NewInt(int64(score)).Cmp(minScore) >= 0
+
+	encoded, err := types.ScoreCheckResultArgs.Pack(req.ListingId, req.Bidder, eligible)
+	if err != nil {
+		return buildResult(action, df, nil, 0, fmt.Errorf("ABI encode score result: %v", err))
+	}
+
+	return buildResult(action, df, encoded, 1, nil)
 }
 
 // processBidReveal ABI-decodes the RevealMessage, decrypts every sealed bid's

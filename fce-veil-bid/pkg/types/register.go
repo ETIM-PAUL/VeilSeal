@@ -22,6 +22,35 @@ func RegisterDecoders(r *decoder.Registry) {
 		decoder.RegistryKey{OPType: "BID", OPCommand: "REVEAL", Kind: decoder.KindResult},
 		revealResultDecoder{},
 	)
+	// SCORE message (ABI-encoded ScoreCheckMessage struct)
+	r.Register(
+		decoder.RegistryKey{OPType: "BID", OPCommand: "SCORE", Kind: decoder.KindMessage},
+		decoder.NewABIDecoder[ScoreCheckRequest](ScoreCheckMessageArg),
+	)
+	// SCORE result (flat ABI tuple: uint256, address, bool)
+	r.Register(
+		decoder.RegistryKey{OPType: "BID", OPCommand: "SCORE", Kind: decoder.KindResult},
+		scoreCheckResultDecoder{},
+	)
+}
+
+// scoreCheckResultDecoder decodes the flat ABI-encoded score-check result that
+// the TEE returns (and that VeilBidding._verifyEligibility decodes on-chain).
+type scoreCheckResultDecoder struct{}
+
+func (scoreCheckResultDecoder) Decode(data []byte) (any, error) {
+	vals, err := ScoreCheckResultArgs.Unpack(data)
+	if err != nil {
+		return nil, err
+	}
+	if len(vals) != 3 {
+		return nil, fmt.Errorf("expected 3 values, got %d", len(vals))
+	}
+	return ScoreCheckResult{
+		ListingId: vals[0].(*big.Int),
+		Bidder:    vals[1].(common.Address),
+		Eligible:  vals[2].(bool),
+	}, nil
 }
 
 // revealResultDecoder decodes the flat ABI-encoded reveal result that the TEE

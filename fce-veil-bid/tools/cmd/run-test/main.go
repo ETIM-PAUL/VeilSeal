@@ -116,7 +116,7 @@ func main() {
 		fccutils.FatalWithCause(errors.Errorf("encrypt sealed terms: %s", err))
 	}
 
-	sealTx, err := instrutils.SubmitSealedBid(s, contractAddr, listingId, commitment, ciphertext)
+	sealTx, err := instrutils.SubmitSealedBid(s, contractAddr, listingId, commitment, ciphertext, instrutils.EmptyAttestation)
 	if err != nil {
 		fccutils.FatalWithCause(errors.Errorf("submitSealedBid: %s", err))
 	}

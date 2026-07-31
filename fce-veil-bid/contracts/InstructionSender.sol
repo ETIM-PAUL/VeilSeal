@@ -35,6 +35,10 @@ contract VeilBidding {
     // forge-lint: disable-next-line(unsafe-typecast)
     bytes32 public constant OP_COMMAND_REVEAL = bytes32("REVEAL");
 
+    /// @notice Command to privately score a wallet's bid eligibility for a listing.
+    // forge-lint: disable-next-line(unsafe-typecast)
+    bytes32 public constant OP_COMMAND_SCORE = bytes32("SCORE");
+
     /// @notice Domain-separation prefix the TEE node signs ActionResult hashes
     /// under: keccak256(abi.encode(TEE_ACTION_RESULT_PREFIX, chainId, ActionResult.Hash())),
     /// wrapped with the EIP-191 personal-sign prefix. Must match go-flare-common's
@@ -71,6 +75,26 @@ contract VeilBidding {
         string itemType;      // "image" | "video" | "audio" | "file"
         string ipfsHash;      // Pinata/IPFS CID of the uploaded item
         uint256 minBid;
+        uint256 minScore;     // 0 = open to everyone; otherwise TEE-verified score gate
+    }
+
+    /// @notice A TEE-signed attestation that a wallet cleared a listing's
+    /// minScore, without ever revealing the wallet's actual score. Produced
+    /// by requestScoreCheck() + the TEE's SCORE handler, verified inline by
+    /// submitSealedBid — no separate on-chain relay transaction needed.
+    struct EligibilityAttestation {
+        bytes data;             // abi.encode(listingId, bidder, eligible)
+        bytes32 actionId;
+        string submissionTag;
+        uint8 status;
+        bytes signature;
+    }
+
+    /// @notice ABI payload of a SCORE instruction (decoded by the TEE).
+    struct ScoreCheckMessage {
+        uint256 listingId;
+        address bidder;
+        address contractAddr;
     }
 
     /// @notice A bidder's sealed bid: an on-chain commitment plus an ECIES
@@ -98,6 +122,14 @@ contract VeilBidding {
     mapping(uint256 => address[]) public bidders;
     mapping(uint256 => mapping(address => SealedBid)) public sealedBids;
 
+    /// @notice Addresses the listing creator has explicitly invited — bypasses
+    /// the minScore gate entirely for that listing.
+    mapping(uint256 => mapping(address => bool)) public isParticipant;
+
+    /// @notice Lifetime count of sealed bids a wallet has placed across every
+    /// listing — one of the signals the TEE factors into a wallet's score.
+    mapping(address => uint256) public totalBidsPlaced;
+
     event ListingCreated(
         uint256 indexed listingId,
         address indexed creator,
@@ -106,9 +138,12 @@ contract VeilBidding {
         string description,
         string itemType,
         string ipfsHash,
-        uint256 minBid
+        uint256 minBid,
+        uint256 minScore
     );
+    event ParticipantsAdded(uint256 indexed listingId, address[] participants);
     event BidSealed(uint256 indexed listingId, address indexed bidder, bytes32 termsCommitment);
+    event ScoreCheckRequested(uint256 indexed listingId, address indexed bidder, bytes32 instructionId);
     event RevealRequested(uint256 indexed listingId, bytes32 instructionId);
     event BidRevealed(uint256 indexed listingId, address indexed winner, uint256 winningAmount);
     event TeeAddressSet(address indexed teeAddress);
@@ -155,14 +190,18 @@ contract VeilBidding {
 
     // --- Listing lifecycle ---
 
-    /// @notice Create a sealed-bid listing with its item metadata and a bidding deadline.
+    /// @notice Create a sealed-bid listing with its item metadata, an optional
+    /// TEE-verified minimum eligibility score (0 = open to everyone), and an
+    /// optional initial set of invited participants who bypass that score gate.
     function createListing(
         string calldata _title,
         string calldata _description,
         string calldata _itemType,
         string calldata _ipfsHash,
         uint256 _minBid,
-        uint64 _deadline
+        uint256 _minScore,
+        uint64 _deadline,
+        address[] calldata _initialParticipants
     ) external returns (uint256 listingId) {
         require(_deadline > block.timestamp, "deadline must be future");
         require(bytes(_title).length > 0, "title required");
@@ -178,27 +217,95 @@ contract VeilBidding {
             description: _description,
             itemType: _itemType,
             ipfsHash: _ipfsHash,
-            minBid: _minBid
+            minBid: _minBid,
+            minScore: _minScore
         });
 
-        emit ListingCreated(listingId, msg.sender, _deadline, _title, _description, _itemType, _ipfsHash, _minBid);
+        emit ListingCreated(
+            listingId, msg.sender, _deadline, _title, _description, _itemType, _ipfsHash, _minBid, _minScore
+        );
+
+        if (_initialParticipants.length > 0) {
+            _addParticipants(listingId, _initialParticipants);
+        }
+    }
+
+    /// @notice Invite additional addresses to bypass this listing's score gate.
+    /// Callable by the creator only, and only while bidding is still open.
+    function addParticipants(uint256 _listingId, address[] calldata _participants) external {
+        Listing storage listing = listings[_listingId];
+        require(listing.deadline != 0, "unknown listing");
+        require(msg.sender == listing.creator, "not listing creator");
+        require(block.timestamp < listing.deadline, "bidding closed");
+
+        _addParticipants(_listingId, _participants);
+    }
+
+    function _addParticipants(uint256 _listingId, address[] calldata _participants) internal {
+        for (uint256 i = 0; i < _participants.length; i++) {
+            isParticipant[_listingId][_participants[i]] = true;
+        }
+        emit ParticipantsAdded(_listingId, _participants);
     }
 
     /// @notice Submit a sealed bid: an on-chain commitment plus an ECIES
     /// ciphertext only the TEE can decrypt. Pure on-chain bookkeeping — no TEE
-    /// round-trip needed since committing an already-computed hash requires no
-    /// confidential compute; the TEE only gets involved at reveal time.
-    function submitSealedBid(uint256 _listingId, bytes32 _termsCommitment, bytes calldata _encryptedTerms) external {
+    /// round-trip needed at submission time for the bid itself; the TEE only
+    /// decrypts at reveal time. If the listing has a minScore gate and the
+    /// caller isn't an invited participant, _attestation must carry a valid
+    /// TEE-signed eligibility result (see requestScoreCheck) — pass a
+    /// zeroed/empty EligibilityAttestation when it isn't needed.
+    function submitSealedBid(
+        uint256 _listingId,
+        bytes32 _termsCommitment,
+        bytes calldata _encryptedTerms,
+        EligibilityAttestation calldata _attestation
+    ) external {
         Listing storage listing = listings[_listingId];
         require(listing.deadline != 0, "unknown listing");
         require(block.timestamp < listing.deadline, "bidding closed");
         require(!sealedBids[_listingId][msg.sender].submitted, "already sealed");
 
+        if (listing.minScore > 0 && !isParticipant[_listingId][msg.sender]) {
+            _verifyEligibility(_listingId, _attestation);
+        }
+
         sealedBids[_listingId][msg.sender] =
             SealedBid({ termsCommitment: _termsCommitment, encryptedTerms: _encryptedTerms, submitted: true });
         bidders[_listingId].push(msg.sender);
+        totalBidsPlaced[msg.sender] += 1;
 
         emit BidSealed(_listingId, msg.sender, _termsCommitment);
+    }
+
+    /// @notice Request a private TEE-computed eligibility check for this
+    /// listing. The TEE independently reads the caller's wallet signals and
+    /// this listing's minScore from chain, and signs back only a boolean —
+    /// the wallet's actual score is never revealed on-chain.
+    /// @dev Payable — forwards the FCC instruction fee to the registry.
+    function requestScoreCheck(uint256 _listingId) external payable returns (bytes32 instructionId) {
+        Listing storage listing = listings[_listingId];
+        require(listing.deadline != 0, "unknown listing");
+        require(block.timestamp < listing.deadline, "bidding closed");
+
+        bytes memory message = abi.encode(
+            ScoreCheckMessage({ listingId: _listingId, bidder: msg.sender, contractAddr: address(this) })
+        );
+
+        address[] memory teeIds = TEE_MACHINE_REGISTRY.getRandomTeeIds(_getExtensionId(), 1);
+        address[] memory cosigners = new address[](0);
+
+        ITeeExtensionRegistry.TeeInstructionParams memory params = ITeeExtensionRegistry.TeeInstructionParams({
+            opType: OP_TYPE_BID,
+            opCommand: OP_COMMAND_SCORE,
+            message: message,
+            cosigners: cosigners,
+            cosignersThreshold: 0,
+            claimBackAddress: msg.sender
+        });
+
+        instructionId = TEE_EXTENSION_REGISTRY.sendInstructions{value: msg.value}(teeIds, params);
+        emit ScoreCheckRequested(_listingId, msg.sender, instructionId);
     }
 
     /// @notice Route every sealed bid for this listing to the TEE for
@@ -296,7 +403,34 @@ contract VeilBidding {
         return bidders[_listingId];
     }
 
+    /// @notice Convenience getter so off-chain callers (the TEE's score
+    /// handler) don't need to decode the full Listing tuple just for this field.
+    function listingMinScore(uint256 _listingId) external view returns (uint256) {
+        return listings[_listingId].minScore;
+    }
+
     // --- Internal ---
+
+    /// @notice Verifies a TEE-signed eligibility attestation for _listingId
+    /// against msg.sender, using the same ActionResult hash/signature scheme
+    /// as submitRevealResult — checked inline so no separate relay tx is needed.
+    function _verifyEligibility(uint256 _listingId, EligibilityAttestation calldata _a) internal view {
+        require(teeAddress != address(0), "TEE address not set");
+        require(_a.status == 1, "eligibility check failed");
+
+        bytes32 resultHash = keccak256(
+            abi.encodePacked(keccak256(_a.data), _a.actionId, keccak256(bytes(_a.submissionTag)), _a.status)
+        );
+        bytes32 payloadHash = keccak256(abi.encode(TEE_ACTION_RESULT_PREFIX, block.chainid, resultHash));
+
+        address signer = _recover(_ethSigned(payloadHash), _a.signature);
+        require(signer == teeAddress, "bad TEE signature");
+
+        (uint256 listingId, address bidder, bool eligible) = abi.decode(_a.data, (uint256, address, bool));
+        require(listingId == _listingId, "attestation listing mismatch");
+        require(bidder == msg.sender, "attestation bidder mismatch");
+        require(eligible, "not eligible");
+    }
 
     /// @notice Returns the cached extension ID, reverting if not set.
     function _getExtensionId() internal view returns (uint256) {

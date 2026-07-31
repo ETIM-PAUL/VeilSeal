@@ -41,6 +41,22 @@ type RevealResult struct {
 	WinningAmount *big.Int
 }
 
+// ScoreCheckRequest is the ABI-decoded payload of a SCORE instruction.
+// Matches Solidity `struct ScoreCheckMessage { uint256 listingId; address bidder; address contractAddr; }`.
+type ScoreCheckRequest struct {
+	ListingId    *big.Int       `json:"listingId"`
+	Bidder       common.Address `json:"bidder"`
+	ContractAddr common.Address `json:"contractAddr"`
+}
+
+// ScoreCheckResult is the decoded form of the SCORE result payload — only the
+// boolean ever leaves the TEE, never the wallet's actual score.
+type ScoreCheckResult struct {
+	ListingId *big.Int
+	Bidder    common.Address
+	Eligible  bool
+}
+
 // RevealMessageArg describes the ABI layout of RevealMessage from the Solidity contract.
 var RevealMessageArg abi.Argument
 
@@ -51,6 +67,13 @@ var RevealResultArgs abi.Arguments
 // TermsCommitmentArgs is the flat ABI tuple used for the on-chain commitment:
 // keccak256(abi.encode(amount, nonce, bidder)).
 var TermsCommitmentArgs abi.Arguments
+
+// ScoreCheckMessageArg describes the ABI layout of ScoreCheckMessage from the Solidity contract.
+var ScoreCheckMessageArg abi.Argument
+
+// ScoreCheckResultArgs is the flat ABI tuple the TEE packs into ActionResult.Data
+// for SCORE, matching _verifyEligibility's abi.decode(data, (uint256, address, bool)).
+var ScoreCheckResultArgs abi.Arguments
 
 func init() {
 	revealTy, _ := abi.NewType("tuple", "", []abi.ArgumentMarshaling{
@@ -65,6 +88,7 @@ func init() {
 	addressTy, _ := abi.NewType("address", "", nil)
 	uintTy, _ := abi.NewType("uint256", "", nil)
 	bytes32Ty, _ := abi.NewType("bytes32", "", nil)
+	boolTy, _ := abi.NewType("bool", "", nil)
 
 	RevealResultArgs = abi.Arguments{
 		{Type: uintTy},
@@ -77,6 +101,19 @@ func init() {
 		{Type: uintTy},
 		{Type: bytes32Ty},
 		{Type: addressTy},
+	}
+
+	scoreCheckTy, _ := abi.NewType("tuple", "", []abi.ArgumentMarshaling{
+		{Name: "listingId", Type: "uint256"},
+		{Name: "bidder", Type: "address"},
+		{Name: "contractAddr", Type: "address"},
+	})
+	ScoreCheckMessageArg = abi.Argument{Type: scoreCheckTy}
+
+	ScoreCheckResultArgs = abi.Arguments{
+		{Type: uintTy},
+		{Type: addressTy},
+		{Type: boolTy},
 	}
 }
 

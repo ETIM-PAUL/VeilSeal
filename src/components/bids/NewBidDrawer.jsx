@@ -28,6 +28,7 @@ import {
 import BidThumbnail from "./BidThumbnail";
 import { ITEM_TYPES, formatDeadline } from "../../utils/bids";
 import { getVeilBiddingContract, getBrowserSigner, isContractConfigured } from "../../contracts/VeilBidding";
+import { toChainAmount } from "../../utils/sealedBid";
 import { uploadFileToPinata, ipfsGatewayUrl, isPinataConfigured } from "../../lib/pinata";
 
 const initial = {
@@ -113,7 +114,7 @@ export default function NewBidDrawer({ opened, onClose, onCreate }) {
         form.description,
         form.itemType,
         form.ipfsHash,
-        BigInt(Math.round(form.minBid)),
+        toChainAmount(form.minBid),
         deadlineUnix
       );
       const receipt = await tx.wait();

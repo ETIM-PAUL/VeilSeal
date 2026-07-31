@@ -45,9 +45,10 @@ func (e *Extension) actionHandler(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write(body)
 }
 
-// bidDataFixed returns parsed instruction data when the action is a BID/REVEAL —
-// deferred asynchronously since decrypting many sealed bids in one instruction
-// can exceed tee-node's 2s synchronous POST timeout.
+// bidDataFixed returns parsed instruction data when the action is a BID/REVEAL
+// or BID/SCORE — deferred asynchronously since both can involve multiple
+// round trips (decrypting several sealed bids, or several chain RPC reads)
+// that risk exceeding tee-node's 2s synchronous POST timeout.
 func bidDataFixed(action teetypes.Action) (*instruction.DataFixed, bool) {
 	df, err := processorutils.Parse[instruction.DataFixed](action.Data.Message)
 	if err != nil {
@@ -57,7 +58,7 @@ func bidDataFixed(action teetypes.Action) (*instruction.DataFixed, bool) {
 		return nil, false
 	}
 	switch df.OPCommand {
-	case teeutils.ToHash(config.OPCommandReveal):
+	case teeutils.ToHash(config.OPCommandReveal), teeutils.ToHash(config.OPCommandScore):
 		return df, true
 	default:
 		return df, false

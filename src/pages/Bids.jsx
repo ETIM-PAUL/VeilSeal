@@ -12,6 +12,7 @@ import BidDetailDrawer from "../components/bids/BidDetailDrawer";
 import EmptyState from "../components/common/EmptyState";
 
 import { getBidStatus } from "../utils/bids";
+import { fromChainAmount } from "../utils/sealedBid";
 import { useWallet } from "../context/useWallet";
 import { fetchAllListings, fetchBidders, fetchOnChainListing, isContractConfigured } from "../contracts/VeilBidding";
 
@@ -75,7 +76,7 @@ export default function Bids() {
               description: listing.description,
               itemType: listing.itemType,
               ipfsHash: listing.ipfsHash,
-              minBid: Number(listing.minBid),
+              minBid: fromChainAmount(listing.minBid),
               token: "FLR",
               participants,
               revealed: onChainListing?.revealed ?? false,

@@ -238,7 +238,7 @@ export default function BidDetailDrawer({ opened, onClose, bid: liveBid, onPlace
 
           {sorted.map((p, index) => {
             const isWinner = Boolean(winner) && p.wallet.toLowerCase() === winner.wallet.toLowerCase();
-            const canWithdraw = status === "Closed" && p.mine && !isWinner && !p.withdrawn;
+            const canWithdraw = status === "Open" && p.mine && !p.withdrawn;
             // Only the TEE-attested winner's amount is ever disclosed on-chain —
             // everyone else's sealed bid stays hidden even after the deadline,
             // except to the bidder themselves. Local/mock (non-chain) listings

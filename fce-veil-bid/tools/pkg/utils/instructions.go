@@ -151,6 +151,10 @@ type ListingMetadata struct {
 	ItemType    string
 	IpfsHash    string
 	MinBid      *big.Int
+	// MinScore gates bidding on a TEE-verified wallet signal score — 0 means
+	// open to everyone. InitialParticipants bypass the gate entirely.
+	MinScore            *big.Int
+	InitialParticipants []common.Address
 }
 
 // CreateListing opens a sealed-bid listing with the given item metadata and
@@ -165,11 +169,18 @@ func CreateListing(s *support.Support, contractAddr common.Address, meta Listing
 		return nil, common.Hash{}, errors.Errorf("failed to create transactor: %s", err)
 	}
 
-	tx, err := c.CreateListing(opts, meta.Title, meta.Description, meta.ItemType, meta.IpfsHash, meta.MinBid, deadline)
+	minScore := meta.MinScore
+	if minScore == nil {
+		minScore = big.NewInt(0)
+	}
+
+	tx, err := c.CreateListing(
+		opts, meta.Title, meta.Description, meta.ItemType, meta.IpfsHash, meta.MinBid, minScore, deadline, meta.InitialParticipants,
+	)
 	if err != nil {
 		return nil, common.Hash{}, errors.Errorf(
 			"createListing: %s (%s)", err,
-			simulateRevert(s, contractAddr, nil, "createListing", meta.Title, meta.Description, meta.ItemType, meta.IpfsHash, meta.MinBid, deadline),
+			simulateRevert(s, contractAddr, nil, "createListing", meta.Title, meta.Description, meta.ItemType, meta.IpfsHash, meta.MinBid, minScore, deadline, meta.InitialParticipants),
 		)
 	}
 	receipt, err := bind.WaitMined(context.Background(), s.ChainClient, tx)
@@ -203,8 +214,15 @@ func EncryptSealedTerms(proxyURL string, terms types.SealedTerms) ([]byte, error
 	return fccutils.EncryptForTee(pub, plaintext)
 }
 
-// SubmitSealedBid submits an on-chain commitment plus ECIES ciphertext for one bidder.
-func SubmitSealedBid(s *support.Support, contractAddr common.Address, listingId *big.Int, termsCommitment common.Hash, encryptedTerms []byte) (common.Hash, error) {
+// EmptyAttestation is passed when a listing has no minScore gate (or the
+// caller is an invited participant) — submitSealedBid never inspects it in
+// that case.
+var EmptyAttestation = veilbidding.VeilBiddingEligibilityAttestation{}
+
+// SubmitSealedBid submits an on-chain commitment plus ECIES ciphertext for one
+// bidder. attestation should be EmptyAttestation unless the listing has a
+// minScore gate the caller isn't exempt from — see RequestAndGetScoreAttestation.
+func SubmitSealedBid(s *support.Support, contractAddr common.Address, listingId *big.Int, termsCommitment common.Hash, encryptedTerms []byte, attestation veilbidding.VeilBiddingEligibilityAttestation) (common.Hash, error) {
 	c, err := veilbidding.NewVeilBidding(contractAddr, s.ChainClient)
 	if err != nil {
 		return common.Hash{}, errors.Errorf("failed to bind contract: %s", err)
@@ -214,9 +232,9 @@ func SubmitSealedBid(s *support.Support, contractAddr common.Address, listingId 
 		return common.Hash{}, errors.Errorf("failed to create transactor: %s", err)
 	}
 
-	tx, err := c.SubmitSealedBid(opts, listingId, termsCommitment, encryptedTerms)
+	tx, err := c.SubmitSealedBid(opts, listingId, termsCommitment, encryptedTerms, attestation)
 	if err != nil {
-		return common.Hash{}, errors.Errorf("submitSealedBid: %s (%s)", err, simulateRevert(s, contractAddr, nil, "submitSealedBid", listingId, termsCommitment, encryptedTerms))
+		return common.Hash{}, errors.Errorf("submitSealedBid: %s (%s)", err, simulateRevert(s, contractAddr, nil, "submitSealedBid", listingId, termsCommitment, encryptedTerms, attestation))
 	}
 	receipt, err := bind.WaitMined(context.Background(), s.ChainClient, tx)
 	if err != nil {
@@ -226,6 +244,68 @@ func SubmitSealedBid(s *support.Support, contractAddr common.Address, listingId 
 		return common.Hash{}, errors.Errorf("submitSealedBid failed with status %d", receipt.Status)
 	}
 	return receipt.TxHash, nil
+}
+
+// SendRequestScoreCheck requests a private TEE eligibility check for the
+// caller against one listing's minScore, returning the FCC instruction ID to
+// poll the proxy for the result.
+func SendRequestScoreCheck(s *support.Support, contractAddr common.Address, listingId *big.Int) (common.Hash, common.Hash, error) {
+	c, err := veilbidding.NewVeilBidding(contractAddr, s.ChainClient)
+	if err != nil {
+		return common.Hash{}, common.Hash{}, errors.Errorf("failed to bind contract: %s", err)
+	}
+	opts, err := bind.NewKeyedTransactorWithChainID(s.Prv, s.ChainID)
+	if err != nil {
+		return common.Hash{}, common.Hash{}, errors.Errorf("failed to create transactor: %s", err)
+	}
+	opts.Value = DefaultFee
+
+	tx, err := c.RequestScoreCheck(opts, listingId)
+	if err != nil {
+		return common.Hash{}, common.Hash{}, errors.Errorf("requestScoreCheck: %s (%s)", err, simulateRevert(s, contractAddr, DefaultFee, "requestScoreCheck", listingId))
+	}
+	receipt, err := bind.WaitMined(context.Background(), s.ChainClient, tx)
+	if err != nil {
+		return common.Hash{}, common.Hash{}, errors.Errorf("failed waiting for requestScoreCheck: %s", err)
+	}
+	if receipt.Status != 1 {
+		return common.Hash{}, common.Hash{}, errors.Errorf("requestScoreCheck failed with status %d", receipt.Status)
+	}
+	if len(receipt.Logs) == 0 {
+		return common.Hash{}, common.Hash{}, errors.New("no logs found in receipt")
+	}
+	instructionSent, err := s.TeeVerification.ParseTeeInstructionsSent(*receipt.Logs[0])
+	if err != nil {
+		return common.Hash{}, common.Hash{}, errors.Errorf("failed to parse TeeInstructionsSent event: %s", err)
+	}
+	return instructionSent.InstructionId, receipt.TxHash, nil
+}
+
+// RequestAndGetScoreAttestation runs the eligibility-check round trip: sends
+// requestScoreCheck, polls the proxy for the TEE-signed result, and returns it
+// as an EligibilityAttestation ready to pass into SubmitSealedBid — no
+// separate relay transaction, submitSealedBid verifies it inline.
+func RequestAndGetScoreAttestation(s *support.Support, contractAddr common.Address, proxyURL string, listingId *big.Int) (veilbidding.VeilBiddingEligibilityAttestation, error) {
+	instructionID, _, err := SendRequestScoreCheck(s, contractAddr, listingId)
+	if err != nil {
+		return EmptyAttestation, errors.Errorf("requestScoreCheck: %s", err)
+	}
+
+	resp, err := fccutils.ActionResult(proxyURL, instructionID)
+	if err != nil {
+		return EmptyAttestation, errors.Errorf("poll score result: %s", err)
+	}
+	if resp.Result.Status != 1 {
+		return EmptyAttestation, errors.Errorf("TEE score check failed: %s", resp.Result.Log)
+	}
+
+	return veilbidding.VeilBiddingEligibilityAttestation{
+		Data:          resp.Result.Data,
+		ActionId:      resp.Result.ID,
+		SubmissionTag: string(resp.Result.SubmissionTag),
+		Status:        resp.Result.Status,
+		Signature:     resp.Signature,
+	}, nil
 }
 
 // SendRequestReveal routes every sealed bid for a listing to the TEE and

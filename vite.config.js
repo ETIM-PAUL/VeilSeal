@@ -23,6 +23,12 @@ export default defineConfig(({ mode }) => {
               target: env.VITE_EXT_PROXY_URL,
               changeOrigin: true,
               rewrite: (path) => path.replace(/^\/tee-proxy/, ''),
+              // The tunnel target is an ngrok free-tier domain: ngrok serves an
+              // HTML interstitial warning page instead of proxying through
+              // whenever a request's User-Agent looks like a browser (curl is
+              // unaffected, which is why this only broke real usage). This
+              // header opts out of that interstitial.
+              headers: { 'ngrok-skip-browser-warning': 'true' },
             },
           }
         : undefined,

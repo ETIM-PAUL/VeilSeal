@@ -8,6 +8,7 @@ import {
   Grid,
   Group,
   NumberInput,
+  SegmentedControl,
   Select,
   Stack,
   Stepper,
@@ -27,9 +28,23 @@ import {
 
 import BidThumbnail from "./BidThumbnail";
 import { ITEM_TYPES, formatDeadline } from "../../utils/bids";
-import { getVeilBiddingContract, getBrowserSigner, isContractConfigured } from "../../contracts/VeilBidding";
+import {
+  getVeilBiddingContract,
+  getBrowserSigner,
+  isContractConfigured,
+  INVITE_ONLY_MIN_SCORE,
+} from "../../contracts/VeilBidding";
 import { toChainAmount } from "../../utils/sealedBid";
 import { uploadFileToPinata, ipfsGatewayUrl, isPinataConfigured } from "../../lib/pinata";
+
+// "score" — TEE-verified minimum wallet score, with an optional invite list
+// that bypasses the score check. "invite" — only creator-invited addresses
+// can bid at all, no score escape hatch. Every listing is gated one way or
+// the other — there's no fully open mode.
+const ACCESS_MODES = [
+  { value: "score", label: "Score-Gated" },
+  { value: "invite", label: "Invite Only" },
+];
 
 const initial = {
   title: "",
@@ -41,7 +56,17 @@ const initial = {
   deadline: null,
   minBid: undefined,
   token: "FLR",
+  accessMode: "score",
+  minScore: 50,
+  participants: "",
 };
+
+function parseParticipants(raw) {
+  return raw
+    .split(/[\s,]+/)
+    .map((a) => a.trim())
+    .filter((a) => /^0x[a-fA-F0-9]{40}$/.test(a));
+}
 
 export default function NewBidDrawer({ opened, onClose, onCreate }) {
   const [step, setStep] = useState(0);
@@ -109,13 +134,18 @@ export default function NewBidDrawer({ opened, onClose, onCreate }) {
       const signer = await getBrowserSigner();
       const contract = getVeilBiddingContract(signer);
       const deadlineUnix = Math.floor(form.deadline.getTime() / 1000);
+      const minScore =
+        form.accessMode === "invite" ? BigInt(INVITE_ONLY_MIN_SCORE) : BigInt(Math.round(form.minScore));
+      const initialParticipants = parseParticipants(form.participants);
       const tx = await contract.createListing(
         form.title,
         form.description,
         form.itemType,
         form.ipfsHash,
         toChainAmount(form.minBid),
-        deadlineUnix
+        minScore,
+        deadlineUnix,
+        initialParticipants
       );
       const receipt = await tx.wait();
 
@@ -139,6 +169,7 @@ export default function NewBidDrawer({ opened, onClose, onCreate }) {
         ipfsHash: form.ipfsHash,
         deadline: form.deadline.toISOString(),
         minBid: form.minBid,
+        minScore,
         onChainListingId: createdEvent.args.listingId.toString(),
         txHash: tx.hash,
       });
@@ -151,7 +182,12 @@ export default function NewBidDrawer({ opened, onClose, onCreate }) {
   };
 
   const canContinue =
-    form.title.trim() && form.deadline && form.minBid > 0 && form.ipfsHash && !uploading;
+    form.title.trim() &&
+    form.deadline &&
+    form.minBid > 0 &&
+    form.ipfsHash &&
+    !uploading &&
+    (form.accessMode !== "invite" || parseParticipants(form.participants).length > 0);
 
   return (
     <Drawer opened={opened} onClose={reset} position="right" size="xl" title="Create Bid Listing">
@@ -236,6 +272,66 @@ export default function NewBidDrawer({ opened, onClose, onCreate }) {
                   />
                 </Group>
 
+                <div>
+                  <Text size="sm" fw={500} mb={6}>
+                    Who Can Bid
+                  </Text>
+
+                  <SegmentedControl
+                    fullWidth
+                    data={ACCESS_MODES}
+                    value={form.accessMode}
+                    onChange={set("accessMode")}
+                  />
+
+                  {form.accessMode === "score" && (
+                    <Stack gap="sm" mt="sm">
+                      <Text size="xs" className="ink-dim">
+                        TEE-verified privately per bidder — their exact score
+                        is never revealed, only whether they clear your bar.
+                      </Text>
+
+                      <NumberInput
+                        label="Minimum Score (0-100)"
+                        value={form.minScore}
+                        onChange={set("minScore")}
+                        min={1}
+                        max={100}
+                      />
+
+                      <Textarea
+                        label="Invited Participants (optional)"
+                        description="Comma or newline-separated wallet addresses that bypass the score requirement entirely."
+                        placeholder="0xabc..., 0xdef..."
+                        minRows={2}
+                        autosize
+                        value={form.participants}
+                        onChange={(e) => set("participants")(e.currentTarget.value)}
+                      />
+                    </Stack>
+                  )}
+
+                  {form.accessMode === "invite" && (
+                    <Stack gap="sm" mt="sm">
+                      <Text size="xs" className="ink-dim">
+                        Only these addresses can bid — no score check, no
+                        exceptions. Add more later from the listing page.
+                      </Text>
+
+                      <Textarea
+                        label="Invited Participants"
+                        description="Comma or newline-separated wallet addresses."
+                        placeholder="0xabc..., 0xdef..."
+                        minRows={2}
+                        autosize
+                        required
+                        value={form.participants}
+                        onChange={(e) => set("participants")(e.currentTarget.value)}
+                      />
+                    </Stack>
+                  )}
+                </div>
+
                 <DateTimePicker
                   label="Bid Deadline"
                   placeholder="Select deadline"
@@ -306,6 +402,18 @@ export default function NewBidDrawer({ opened, onClose, onCreate }) {
                 {form.ipfsHash}
               </Text>
             </Group>
+
+            <Group justify="space-between">
+              <Text c="dimmed">Who Can Bid</Text>
+              <Text fw={600}>{form.accessMode === "invite" ? "Invite only" : `Min score ${form.minScore}`}</Text>
+            </Group>
+
+            {parseParticipants(form.participants).length > 0 && (
+              <Group justify="space-between" wrap="nowrap">
+                <Text c="dimmed">{form.accessMode === "invite" ? "Invited" : "Invited (bypass gate)"}</Text>
+                <Text fw={600}>{parseParticipants(form.participants).length} address(es)</Text>
+              </Group>
+            )}
 
             <Button leftSection={<LuGavel size={15} />} onClick={next}>
               Sign with Wallet

@@ -39,6 +39,15 @@ contract VeilBidding {
     // forge-lint: disable-next-line(unsafe-typecast)
     bytes32 public constant OP_COMMAND_SCORE = bytes32("SCORE");
 
+    /// @notice Command for a wallet to privately learn its own signal score —
+    /// informational only, no listing/threshold involved, no relay needed.
+    // forge-lint: disable-next-line(unsafe-typecast)
+    bytes32 public constant OP_COMMAND_MY_SCORE = bytes32("MY_SCORE");
+
+    /// @notice Score bounds the TEE's formula operates within (internal/extension/chain.go).
+    uint256 public constant MIN_SCORE_THRESHOLD = 5;
+    uint256 public constant MAX_SCORE = 100;
+
     /// @notice Domain-separation prefix the TEE node signs ActionResult hashes
     /// under: keccak256(abi.encode(TEE_ACTION_RESULT_PREFIX, chainId, ActionResult.Hash())),
     /// wrapped with the EIP-191 personal-sign prefix. Must match go-flare-common's
@@ -75,7 +84,8 @@ contract VeilBidding {
         string itemType;      // "image" | "video" | "audio" | "file"
         string ipfsHash;      // Pinata/IPFS CID of the uploaded item
         uint256 minBid;
-        uint256 minScore;     // 0 = open to everyone; otherwise TEE-verified score gate
+        uint256 minScore;     // only meaningful when !inviteOnly — TEE-verified score gate
+        bool inviteOnly;      // true = only isParticipant addresses may bid, score is never checked
     }
 
     /// @notice A TEE-signed attestation that a wallet cleared a listing's
@@ -139,11 +149,13 @@ contract VeilBidding {
         string itemType,
         string ipfsHash,
         uint256 minBid,
-        uint256 minScore
+        uint256 minScore,
+        bool inviteOnly
     );
     event ParticipantsAdded(uint256 indexed listingId, address[] participants);
     event BidSealed(uint256 indexed listingId, address indexed bidder, bytes32 termsCommitment);
     event ScoreCheckRequested(uint256 indexed listingId, address indexed bidder, bytes32 instructionId);
+    event MyScoreRequested(address indexed wallet, bytes32 instructionId);
     event RevealRequested(uint256 indexed listingId, bytes32 instructionId);
     event BidRevealed(uint256 indexed listingId, address indexed winner, uint256 winningAmount);
     event TeeAddressSet(address indexed teeAddress);
@@ -190,9 +202,10 @@ contract VeilBidding {
 
     // --- Listing lifecycle ---
 
-    /// @notice Create a sealed-bid listing with its item metadata, an optional
-    /// TEE-verified minimum eligibility score (0 = open to everyone), and an
-    /// optional initial set of invited participants who bypass that score gate.
+    /// @notice Create a sealed-bid listing with its item metadata and an access
+    /// mode: either score-gated (_minScore must be MIN_SCORE_THRESHOLD..MAX_SCORE,
+    /// TEE-verified per bidder) or invite-only (_inviteOnly=true, _minScore is
+    /// ignored entirely, bidding requires at least one initial participant).
     function createListing(
         string calldata _title,
         string calldata _description,
@@ -200,13 +213,21 @@ contract VeilBidding {
         string calldata _ipfsHash,
         uint256 _minBid,
         uint256 _minScore,
+        bool _inviteOnly,
         uint64 _deadline,
         address[] calldata _initialParticipants
     ) external returns (uint256 listingId) {
         require(_deadline > block.timestamp, "deadline must be future");
         require(bytes(_title).length > 0, "title required");
 
+        if (_inviteOnly) {
+            require(_initialParticipants.length > 0, "invite-only listings need at least one participant");
+        } else {
+            require(_minScore >= MIN_SCORE_THRESHOLD && _minScore <= MAX_SCORE, "minScore out of range");
+        }
+
         listingId = ++listingCount;
+        uint256 storedMinScore = _inviteOnly ? 0 : _minScore;
         listings[listingId] = Listing({
             creator: msg.sender,
             deadline: _deadline,
@@ -218,11 +239,12 @@ contract VeilBidding {
             itemType: _itemType,
             ipfsHash: _ipfsHash,
             minBid: _minBid,
-            minScore: _minScore
+            minScore: storedMinScore,
+            inviteOnly: _inviteOnly
         });
 
         emit ListingCreated(
-            listingId, msg.sender, _deadline, _title, _description, _itemType, _ipfsHash, _minBid, _minScore
+            listingId, msg.sender, _deadline, _title, _description, _itemType, _ipfsHash, _minBid, storedMinScore, _inviteOnly
         );
 
         if (_initialParticipants.length > 0) {
@@ -230,8 +252,10 @@ contract VeilBidding {
         }
     }
 
-    /// @notice Invite additional addresses to bypass this listing's score gate.
-    /// Callable by the creator only, and only while bidding is still open.
+    /// @notice Invite additional addresses. For invite-only listings this is
+    /// the entire access control; for score-gated listings it's an override
+    /// that bypasses the score check. Callable by the creator only, and only
+    /// while bidding is still open.
     function addParticipants(uint256 _listingId, address[] calldata _participants) external {
         Listing storage listing = listings[_listingId];
         require(listing.deadline != 0, "unknown listing");
@@ -251,10 +275,11 @@ contract VeilBidding {
     /// @notice Submit a sealed bid: an on-chain commitment plus an ECIES
     /// ciphertext only the TEE can decrypt. Pure on-chain bookkeeping — no TEE
     /// round-trip needed at submission time for the bid itself; the TEE only
-    /// decrypts at reveal time. If the listing has a minScore gate and the
-    /// caller isn't an invited participant, _attestation must carry a valid
-    /// TEE-signed eligibility result (see requestScoreCheck) — pass a
-    /// zeroed/empty EligibilityAttestation when it isn't needed.
+    /// decrypts at reveal time. Invite-only listings check nothing but the
+    /// participant list — score is never considered. Score-gated listings
+    /// check the participant list first (bypass), then require _attestation
+    /// to carry a valid TEE-signed eligibility result (see requestScoreCheck)
+    /// — pass a zeroed/empty EligibilityAttestation when it isn't needed.
     function submitSealedBid(
         uint256 _listingId,
         bytes32 _termsCommitment,
@@ -266,7 +291,9 @@ contract VeilBidding {
         require(block.timestamp < listing.deadline, "bidding closed");
         require(!sealedBids[_listingId][msg.sender].submitted, "already sealed");
 
-        if (listing.minScore > 0 && !isParticipant[_listingId][msg.sender]) {
+        if (listing.inviteOnly) {
+            require(isParticipant[_listingId][msg.sender], "invite only: not on participant list");
+        } else if (listing.minScore > 0 && !isParticipant[_listingId][msg.sender]) {
             _verifyEligibility(_listingId, _attestation);
         }
 
@@ -306,6 +333,30 @@ contract VeilBidding {
 
         instructionId = TEE_EXTENSION_REGISTRY.sendInstructions{value: msg.value}(teeIds, params);
         emit ScoreCheckRequested(_listingId, msg.sender, instructionId);
+    }
+
+    /// @notice Request a private, informational read of the caller's own
+    /// signal score — no listing, no threshold, nothing ever posted back
+    /// on-chain. The frontend polls the proxy directly for the TEE's
+    /// response and displays it only to the requesting wallet.
+    /// @dev Payable — forwards the FCC instruction fee to the registry.
+    function requestMyScore() external payable returns (bytes32 instructionId) {
+        bytes memory message = abi.encode(msg.sender);
+
+        address[] memory teeIds = TEE_MACHINE_REGISTRY.getRandomTeeIds(_getExtensionId(), 1);
+        address[] memory cosigners = new address[](0);
+
+        ITeeExtensionRegistry.TeeInstructionParams memory params = ITeeExtensionRegistry.TeeInstructionParams({
+            opType: OP_TYPE_BID,
+            opCommand: OP_COMMAND_MY_SCORE,
+            message: message,
+            cosigners: cosigners,
+            cosignersThreshold: 0,
+            claimBackAddress: msg.sender
+        });
+
+        instructionId = TEE_EXTENSION_REGISTRY.sendInstructions{value: msg.value}(teeIds, params);
+        emit MyScoreRequested(msg.sender, instructionId);
     }
 
     /// @notice Route every sealed bid for this listing to the TEE for

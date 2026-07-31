@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { Anchor, Badge, Button, Drawer, Group, Loader, Stack, Text } from "@mantine/core";
-import { LuGavel, LuLock, LuTrophy, LuUndo2, LuShieldCheck, LuExternalLink, LuSparkles } from "react-icons/lu";
+import { Anchor, Badge, Button, Drawer, Group, Loader, Stack, Text, Textarea } from "@mantine/core";
+import { LuGavel, LuLock, LuTrophy, LuUndo2, LuShieldCheck, LuExternalLink, LuSparkles, LuUserPlus } from "react-icons/lu";
 
 import BidThumbnail from "./BidThumbnail";
 import { statusColor } from "../../utils/status";
@@ -10,14 +10,25 @@ import {
   isContractConfigured,
   getVeilBiddingContract,
   getBrowserSigner,
+  addParticipants,
+  isInviteOnly,
   INSTRUCTION_FEE_WEI,
 } from "../../contracts/VeilBidding";
 import { truncateAddress, explorerTxUrl } from "../../utils/network";
 import { fromChainAmount } from "../../utils/sealedBid";
 import { requestAndRelayReveal } from "../../lib/tee/reveal";
 import { isProxyConfigured } from "../../lib/tee/proxy";
+import { useWallet } from "../../context/useWallet";
+
+function parseParticipants(raw) {
+  return raw
+    .split(/[\s,]+/)
+    .map((a) => a.trim())
+    .filter((a) => /^0x[a-fA-F0-9]{40}$/.test(a));
+}
 
 export default function BidDetailDrawer({ opened, onClose, bid: liveBid, onPlaceBid, onWithdraw }) {
+  const { address } = useWallet();
   // Keep the last known bid around so the drawer content stays in place
   // while it animates closed, instead of vanishing mid-transition.
   const [cachedBid, setCachedBid] = useState(liveBid);
@@ -33,6 +44,10 @@ export default function BidDetailDrawer({ opened, onClose, bid: liveBid, onPlace
   const [revealing, setRevealing] = useState(false);
   const [revealStepLabel, setRevealStepLabel] = useState("");
   const [revealError, setRevealError] = useState(null);
+
+  const [participantsInput, setParticipantsInput] = useState("");
+  const [addingParticipants, setAddingParticipants] = useState(false);
+  const [addParticipantsError, setAddParticipantsError] = useState(null);
 
   const onChainListingId = bid?.onChainListingId;
 
@@ -78,6 +93,28 @@ export default function BidDetailDrawer({ opened, onClose, bid: liveBid, onPlace
     } finally {
       setRevealing(false);
       setRevealStepLabel("");
+    }
+  };
+
+  const handleAddParticipants = async () => {
+    const addresses = parseParticipants(participantsInput);
+    if (addresses.length === 0) {
+      setAddParticipantsError("Enter at least one valid wallet address.");
+      return;
+    }
+
+    setAddingParticipants(true);
+    setAddParticipantsError(null);
+    try {
+      const signer = await getBrowserSigner();
+      const contract = getVeilBiddingContract(signer);
+      await addParticipants(contract, onChainListingId, addresses);
+      setParticipantsInput("");
+      setRefreshTick((t) => t + 1);
+    } catch (err) {
+      setAddParticipantsError(err?.reason ?? err?.message ?? "Failed to add participants.");
+    } finally {
+      setAddingParticipants(false);
     }
   };
 
@@ -130,6 +167,17 @@ export default function BidDetailDrawer({ opened, onClose, bid: liveBid, onPlace
             </div>
           </div>
         </Group>
+
+        {bid.minScore > 0n && (
+          <Group gap={6}>
+            <LuShieldCheck size={13} color="var(--amber)" />
+            <Text size="xs" className="ink-dim">
+              {isInviteOnly(bid.minScore)
+                ? "Invite only — only creator-invited wallets can bid."
+                : `Gated listing — bidders need a TEE-verified signal score of at least ${bid.minScore.toString()}, unless invited directly.`}
+            </Text>
+          </Group>
+        )}
 
         <Text size="xs" className="ink-faint num" style={{ wordBreak: "break-all" }}>
           IPFS: {bid.ipfsHash}
@@ -222,6 +270,48 @@ export default function BidDetailDrawer({ opened, onClose, bid: liveBid, onPlace
             Place Sealed Bid
           </Button>
         )}
+
+        {status === "Open" &&
+          bid.minScore > 0n &&
+          address &&
+          bid.creator?.toLowerCase() === address.toLowerCase() && (
+            <div className="panel" style={{ padding: 14 }}>
+              <Group gap={6} mb={8}>
+                <LuUserPlus size={13} />
+                <Text className="label-micro-strong">Invite Participants</Text>
+              </Group>
+
+              <Text size="xs" className="ink-dim" mb={8}>
+                Invited addresses bypass this listing's score gate entirely —
+                useful for known bidders who shouldn't need to clear the bar.
+              </Text>
+
+              <Textarea
+                placeholder="0xabc..., 0xdef..."
+                minRows={2}
+                autosize
+                value={participantsInput}
+                onChange={(e) => setParticipantsInput(e.currentTarget.value)}
+                mb={8}
+              />
+
+              {addParticipantsError && (
+                <Text size="xs" mb={8} style={{ color: "var(--danger)" }}>
+                  {addParticipantsError}
+                </Text>
+              )}
+
+              <Button
+                size="xs"
+                variant="light"
+                leftSection={<LuUserPlus size={13} />}
+                onClick={handleAddParticipants}
+                loading={addingParticipants}
+              >
+                Add Participants
+              </Button>
+            </div>
+          )}
 
         <div className="hairline-top" style={{ marginTop: 4 }} />
 

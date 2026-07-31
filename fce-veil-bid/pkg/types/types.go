@@ -57,6 +57,15 @@ type ScoreCheckResult struct {
 	Eligible  bool
 }
 
+// MyScoreResult is the decoded form of the MY_SCORE result payload — unlike
+// SCORE, this deliberately does reveal the actual score, but only to the
+// requesting wallet itself (never posted on-chain, never relayed to a
+// contract, just polled and displayed client-side).
+type MyScoreResult struct {
+	Wallet common.Address
+	Score  *big.Int
+}
+
 // RevealMessageArg describes the ABI layout of RevealMessage from the Solidity contract.
 var RevealMessageArg abi.Argument
 
@@ -74,6 +83,14 @@ var ScoreCheckMessageArg abi.Argument
 // ScoreCheckResultArgs is the flat ABI tuple the TEE packs into ActionResult.Data
 // for SCORE, matching _verifyEligibility's abi.decode(data, (uint256, address, bool)).
 var ScoreCheckResultArgs abi.Arguments
+
+// MyScoreMessageArg describes the ABI layout of a MY_SCORE instruction's
+// message — just the requesting wallet's address, ABI-encoded bare (not a tuple).
+var MyScoreMessageArg abi.Argument
+
+// MyScoreResultArgs is the flat ABI tuple the TEE packs into ActionResult.Data
+// for MY_SCORE: (address wallet, uint256 score).
+var MyScoreResultArgs abi.Arguments
 
 func init() {
 	revealTy, _ := abi.NewType("tuple", "", []abi.ArgumentMarshaling{
@@ -114,6 +131,13 @@ func init() {
 		{Type: uintTy},
 		{Type: addressTy},
 		{Type: boolTy},
+	}
+
+	MyScoreMessageArg = abi.Argument{Type: addressTy}
+
+	MyScoreResultArgs = abi.Arguments{
+		{Type: addressTy},
+		{Type: uintTy},
 	}
 }
 

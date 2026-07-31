@@ -18,10 +18,19 @@ import { LuCheckCheck, LuLock, LuShieldCheck, LuWallet } from "react-icons/lu";
 import { BID_TOKENS } from "../../utils/bids";
 import { MY_WALLET } from "../../data/bids";
 import { useWallet } from "../../context/useWallet";
-import { getVeilBiddingContract, getBrowserSigner, isContractConfigured } from "../../contracts/VeilBidding";
+import {
+  getVeilBiddingContract,
+  getBrowserSigner,
+  isContractConfigured,
+  fetchIsParticipant,
+  isInviteOnly,
+  INSTRUCTION_FEE_WEI,
+  EMPTY_ATTESTATION,
+} from "../../contracts/VeilBidding";
 import { computeTermsCommitment, encryptBidTerms, randomNonce, toChainAmount } from "../../utils/sealedBid";
 import { fetchLiveTeePublicKey } from "../../lib/tee/ecies";
 import { isProxyConfigured } from "../../lib/tee/proxy";
+import { requestEligibilityAttestation } from "../../lib/tee/eligibility";
 
 // Static fallback for the self-contained (non-real-registry) contract path —
 // the real, registered TEE's public key is fetched live from the extension
@@ -36,6 +45,7 @@ export default function PlaceBidDrawer({ opened, onClose, bid, onSubmit }) {
   const [token, setToken] = useState(bid?.token ?? "FLR");
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState(null);
+  const [submitStepLabel, setSubmitStepLabel] = useState("");
 
   // Keep the last known bid around so the drawer content stays in place
   // while it animates closed, instead of vanishing mid-transition.
@@ -70,6 +80,7 @@ export default function PlaceBidDrawer({ opened, onClose, bid, onSubmit }) {
 
     setSubmitting(true);
     setSubmitError(null);
+    setSubmitStepLabel("");
 
     try {
       let teePublicKey = STATIC_TEE_PUBLIC_KEY;
@@ -83,12 +94,39 @@ export default function PlaceBidDrawer({ opened, onClose, bid, onSubmit }) {
       const signer = await getBrowserSigner();
       const contract = getVeilBiddingContract(signer);
 
+      let attestation = EMPTY_ATTESTATION;
+      const minScore = activeBid.minScore ?? 0n;
+      if (minScore > 0n) {
+        const isInvited = await fetchIsParticipant(activeBid.onChainListingId, wallet);
+        if (!isInvited) {
+          if (isInviteOnly(minScore)) {
+            // No score can ever clear this bar — don't waste a tx/fee on a
+            // doomed check, fail fast with a clear reason instead.
+            throw new Error("This listing is invite-only and your wallet hasn't been added by the creator.");
+          }
+
+          const { attestation: att, eligible } = await requestEligibilityAttestation(
+            contract,
+            activeBid.onChainListingId,
+            INSTRUCTION_FEE_WEI,
+            setSubmitStepLabel
+          );
+          if (!eligible) {
+            throw new Error(
+              `Your wallet's signal score doesn't meet this listing's eligibility bar (min score ${minScore}).`
+            );
+          }
+          attestation = att;
+        }
+      }
+
+      setSubmitStepLabel("Sealing and submitting your bid…");
       const chainAmount = toChainAmount(amount);
       const nonce = randomNonce();
       const termsCommitment = computeTermsCommitment({ amount: chainAmount, nonce, bidder: wallet });
       const encryptedTerms = await encryptBidTerms({ amount: chainAmount, nonce, bidder: wallet }, teePublicKey);
 
-      const tx = await contract.submitSealedBid(activeBid.onChainListingId, termsCommitment, encryptedTerms);
+      const tx = await contract.submitSealedBid(activeBid.onChainListingId, termsCommitment, encryptedTerms, attestation);
       await tx.wait();
 
       onSubmit({ amount, token, wallet, termsCommitment, txHash: tx.hash });
@@ -97,6 +135,7 @@ export default function PlaceBidDrawer({ opened, onClose, bid, onSubmit }) {
       setSubmitError(err?.reason ?? err?.message ?? "Failed to submit sealed bid on-chain.");
     } finally {
       setSubmitting(false);
+      setSubmitStepLabel("");
     }
   };
 
@@ -111,6 +150,14 @@ export default function PlaceBidDrawer({ opened, onClose, bid, onSubmit }) {
               Your bid amount is sealed and encrypted until the deadline —
               other bidders cannot see it.
             </Alert>
+
+            {activeBid.minScore > 0n && (
+              <Alert icon={<LuShieldCheck />} color="amber">
+                {isInviteOnly(activeBid.minScore)
+                  ? "This listing is invite-only — only wallets the creator has added can bid."
+                  : `This listing requires a minimum wallet signal score of ${activeBid.minScore.toString()}, privately checked by the TEE before your bid is accepted — your actual score is never revealed.`}
+              </Alert>
+            )}
 
             <NumberInput
               label="Bid Amount"
@@ -151,6 +198,12 @@ export default function PlaceBidDrawer({ opened, onClose, bid, onSubmit }) {
                 {amount?.toLocaleString()} {token}
               </Text>
             </Group>
+
+            {submitting && submitStepLabel && (
+              <Text size="sm" c="dimmed">
+                {submitStepLabel}
+              </Text>
+            )}
 
             {submitError && (
               <Text size="sm" style={{ color: "var(--danger)" }}>

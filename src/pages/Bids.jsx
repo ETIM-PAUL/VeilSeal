@@ -77,6 +77,7 @@ export default function Bids() {
               itemType: listing.itemType,
               ipfsHash: listing.ipfsHash,
               minBid: fromChainAmount(listing.minBid),
+              minScore: listing.minScore ?? 0n,
               token: "FLR",
               participants,
               revealed: onChainListing?.revealed ?? false,

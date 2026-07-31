@@ -4,7 +4,7 @@ import { LuGavel, LuLock, LuTrophy, LuUndo2, LuShieldCheck, LuExternalLink, LuSp
 
 import BidThumbnail from "./BidThumbnail";
 import { statusColor } from "../../utils/status";
-import { getBidStatus, getWinner, formatCountdown, formatDeadline } from "../../utils/bids";
+import { getBidStatus, isRevealed, resolveWinner, formatCountdown, formatDeadline } from "../../utils/bids";
 import {
   fetchOnChainListing,
   isContractConfigured,
@@ -84,11 +84,19 @@ export default function BidDetailDrawer({ opened, onClose, bid: liveBid, onPlace
   if (!bid) return null;
 
   const status = getBidStatus(bid);
-  const winner = status === "Closed" ? getWinner(bid) : null;
+  const revealed = isRevealed(bid, onChainData);
+  const winner = revealed ? resolveWinner(bid, onChainData) : null;
   const iWon = winner?.mine;
 
   const sorted = [...bid.participants].sort((a, b) => {
     if (status === "Open") return 0;
+    // Sealed (non-winning) amounts are never disclosed, so they're all 0 —
+    // sort the revealed winner to the top instead of relying on that.
+    if (winner) {
+      const aIsWinner = a.wallet.toLowerCase() === winner.wallet.toLowerCase();
+      const bIsWinner = b.wallet.toLowerCase() === winner.wallet.toLowerCase();
+      if (aIsWinner !== bIsWinner) return aIsWinner ? -1 : 1;
+    }
     return b.amount - a.amount;
   });
 
@@ -229,8 +237,13 @@ export default function BidDetailDrawer({ opened, onClose, bid: liveBid, onPlace
           )}
 
           {sorted.map((p, index) => {
-            const isWinner = status === "Closed" && winner && p.id === winner.id && p.wallet === winner.wallet;
+            const isWinner = Boolean(winner) && p.wallet.toLowerCase() === winner.wallet.toLowerCase();
             const canWithdraw = status === "Closed" && p.mine && !isWinner && !p.withdrawn;
+            // Only the TEE-attested winner's amount is ever disclosed on-chain —
+            // everyone else's sealed bid stays hidden even after the deadline,
+            // except to the bidder themselves. Local/mock (non-chain) listings
+            // have no such reveal step, so they keep the old "show once closed" behavior.
+            const showAmount = p.mine || (bid.onChainListingId ? isWinner : status === "Closed");
 
             return (
               <Group
@@ -274,17 +287,17 @@ export default function BidDetailDrawer({ opened, onClose, bid: liveBid, onPlace
                 </Group>
 
                 <Group gap={10}>
-                  {status === "Open" && !p.mine ? (
+                  {showAmount ? (
+                    <Text size="sm" fw={600} className="num">
+                      {(isWinner ? winner.amount : p.amount).toLocaleString()} {bid.token}
+                    </Text>
+                  ) : (
                     <Group gap={4}>
                       <LuLock size={12} className="ink-faint" />
                       <Text size="sm" className="ink-faint">
                         Sealed
                       </Text>
                     </Group>
-                  ) : (
-                    <Text size="sm" fw={600} className="num">
-                      {p.amount.toLocaleString()} {bid.token}
-                    </Text>
                   )}
 
                   {p.withdrawn && (

@@ -3,11 +3,12 @@ import { LuUsers, LuTrophy } from "react-icons/lu";
 
 import BidThumbnail from "./BidThumbnail";
 import { statusColor } from "../../utils/status";
-import { getBidStatus, getWinner, formatCountdown } from "../../utils/bids";
+import { getBidStatus, isRevealed, resolveWinner, formatCountdown } from "../../utils/bids";
 
 export default function BidCard({ bid, onOpen }) {
   const status = getBidStatus(bid);
-  const winner = status === "Closed" ? getWinner(bid) : null;
+  const revealed = isRevealed(bid);
+  const winner = revealed ? resolveWinner(bid) : null;
   const iWon = winner?.mine;
 
   return (
@@ -42,7 +43,7 @@ export default function BidCard({ bid, onOpen }) {
 
         <div style={{ textAlign: "right" }}>
           <div className="label-micro">
-            {status === "Open" ? formatCountdown(bid.deadline) : "Revealed"}
+            {status === "Open" ? formatCountdown(bid.deadline) : revealed ? "Revealed" : "Awaiting Reveal"}
           </div>
 
           <Group gap={4} justify="flex-end" mt={2}>

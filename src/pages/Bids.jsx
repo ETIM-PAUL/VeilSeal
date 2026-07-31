@@ -13,7 +13,7 @@ import EmptyState from "../components/common/EmptyState";
 
 import { getBidStatus } from "../utils/bids";
 import { useWallet } from "../context/useWallet";
-import { fetchAllListings, fetchBidders, isContractConfigured } from "../contracts/VeilBidding";
+import { fetchAllListings, fetchBidders, fetchOnChainListing, isContractConfigured } from "../contracts/VeilBidding";
 
 export default function Bids() {
   const { address } = useWallet();
@@ -50,7 +50,10 @@ export default function Bids() {
         const merged = await Promise.all(
           listings.map(async (listing) => {
             const listingId = listing.listingId.toString();
-            const bidders = await fetchBidders(listing.listingId).catch(() => []);
+            const [bidders, onChainListing] = await Promise.all([
+              fetchBidders(listing.listingId).catch(() => []),
+              fetchOnChainListing(listing.listingId).catch(() => null),
+            ]);
 
             const participants = bidders.map((wallet, index) => ({
               id: index + 1,
@@ -75,6 +78,9 @@ export default function Bids() {
               minBid: Number(listing.minBid),
               token: "FLR",
               participants,
+              revealed: onChainListing?.revealed ?? false,
+              winner: onChainListing?.winner ?? null,
+              winningAmount: onChainListing?.winningAmount ?? null,
             };
           })
         );

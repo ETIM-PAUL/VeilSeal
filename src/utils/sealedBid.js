@@ -42,8 +42,14 @@ export function computeTermsCommitment({ amount, nonce, bidder }) {
 /// ECIES-encrypts the true bid terms so only the holder of the TEE's
 /// private key can read them — the on-chain contract only ever sees the
 /// commitment hash and this opaque ciphertext.
+///
+/// `amount` is emitted as a bare JSON number, not a quoted string: the real
+/// TEE extension decodes this plaintext straight into Go's `*big.Int`
+/// (types.SealedTerms), whose UnmarshalJSON rejects a quoted numeric string
+/// outright. JSON.stringify can't serialize a BigInt directly, so the
+/// payload is built manually instead.
 export async function encryptBidTerms({ amount, nonce, bidder }, teePublicKey) {
-  const plaintext = JSON.stringify({ amount: amount.toString(), nonce, bidder });
+  const plaintext = `{"amount":${amount},"nonce":${JSON.stringify(nonce)},"bidder":${JSON.stringify(bidder)}}`;
   const encrypted = await EthCrypto.encryptWithPublicKey(teePublicKey, plaintext);
   return "0x" + EthCrypto.cipher.stringify(encrypted);
 }

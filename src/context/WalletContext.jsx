@@ -90,17 +90,24 @@ export function WalletProvider({ children }) {
   // unless the user explicitly disconnected last time.
   useEffect(() => {
     if (!provider || localStorage.getItem(DISCONNECTED_FLAG)) return;
+    let cancelled = false;
 
-    provider
-      .request({ method: "eth_accounts" })
-      .then((accounts) => {
-        if (accounts[0]) {
-          setAddress(accounts[0]);
-          return provider.request({ method: "eth_chainId" }).then(setChainId);
-        }
-        return undefined;
-      })
-      .catch(() => {});
+    (async () => {
+      try {
+        const accounts = await provider.request({ method: "eth_accounts" });
+        if (cancelled || !accounts?.[0]) return;
+
+        setAddress(accounts[0]);
+        const currentChainId = await provider.request({ method: "eth_chainId" });
+        if (!cancelled) setChainId(currentChainId);
+      } catch {
+        // No-op: session restore is best-effort.
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [provider]);
 
   useEffect(() => {

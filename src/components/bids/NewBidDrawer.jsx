@@ -26,7 +26,7 @@ import {
 } from "react-icons/lu";
 
 import BidThumbnail from "./BidThumbnail";
-import { BID_TOKENS, ITEM_TYPES, formatDeadline } from "../../utils/bids";
+import { ITEM_TYPES, formatDeadline } from "../../utils/bids";
 import { getVeilBiddingContract, getBrowserSigner, isContractConfigured } from "../../contracts/VeilBidding";
 import { uploadFileToPinata, ipfsGatewayUrl, isPinataConfigured } from "../../lib/pinata";
 
@@ -107,7 +107,6 @@ export default function NewBidDrawer({ opened, onClose, onCreate }) {
     try {
       const signer = await getBrowserSigner();
       const contract = getVeilBiddingContract(signer);
-
       const deadlineUnix = Math.floor(form.deadline.getTime() / 1000);
       const tx = await contract.createListing(
         form.title,
@@ -139,7 +138,6 @@ export default function NewBidDrawer({ opened, onClose, onCreate }) {
         ipfsHash: form.ipfsHash,
         deadline: form.deadline.toISOString(),
         minBid: form.minBid,
-        token: form.token,
         onChainListingId: createdEvent.args.listingId.toString(),
         txHash: tx.hash,
       });
@@ -235,20 +233,13 @@ export default function NewBidDrawer({ opened, onClose, onCreate }) {
                     thousandSeparator=","
                     min={0}
                   />
-
-                  <Select
-                    label="Token"
-                    data={BID_TOKENS}
-                    value={form.token}
-                    onChange={set("token")}
-                  />
                 </Group>
 
                 <DateTimePicker
                   label="Bid Deadline"
                   placeholder="Select deadline"
                   value={form.deadline}
-                  onChange={set("deadline")}
+                  onChange={(value) => set("deadline")(value ? new Date(value) : null)}
                   minDate={new Date()}
                   clearable
                   description="Bids are sealed until this deadline, then revealed automatically"
@@ -299,7 +290,7 @@ export default function NewBidDrawer({ opened, onClose, onCreate }) {
             <Group justify="space-between">
               <Text c="dimmed">Minimum Bid</Text>
               <Text fw={600} className="num">
-                {form.minBid?.toLocaleString()} {form.token}
+                {form.minBid?.toLocaleString()} FLR
               </Text>
             </Group>
 

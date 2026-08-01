@@ -42,9 +42,16 @@ export async function createAgent(signer, wallet, { encryptedPrivateKey, keyword
   return signedRequest(signer, "POST", "/agent", { wallet, encryptedPrivateKey, keyword, itemType, maxAmount });
 }
 
-/// Returns null if no agent is registered for this wallet.
-export async function getAgent(signer, wallet) {
-  return signedRequest(signer, "GET", `/agent/${wallet}`);
+/// Returns null if no agent is registered for this wallet. Unauthenticated —
+/// it's a read-only status check with no key material in the response, and
+/// gating it would mean popping a signature prompt on every page load.
+export async function getAgent(wallet) {
+  const res = await fetch(`${AGENT_API_URL}/agent/${wallet}`);
+  const text = await res.text();
+  if (!res.ok) {
+    throw new Error(text || `GET /agent/${wallet} failed (${res.status})`);
+  }
+  return res.status === 204 || !text ? null : JSON.parse(text);
 }
 
 /// Partial update — only provided fields change. Used for the

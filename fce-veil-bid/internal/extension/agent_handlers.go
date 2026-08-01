@@ -197,14 +197,15 @@ func (e *Extension) createAgentHandler(w http.ResponseWriter, r *http.Request) {
 	writeAgentJSON(w, http.StatusCreated, toAgentResponse(rec))
 }
 
+// getAgentHandler is deliberately unauthenticated — it's a read-only status
+// check (no key material in the response, see toAgentResponse) fired on every
+// Agents page load, and requiring a wallet signature just to view status
+// meant popping a signing prompt on every visit. Mutating routes below still
+// require it.
 func (e *Extension) getAgentHandler(w http.ResponseWriter, r *http.Request) {
 	wallet, err := pathWallet(r)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-	if err := verifyAgentAuth(r, wallet); err != nil {
-		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return
 	}
 	if e.agentStore == nil {

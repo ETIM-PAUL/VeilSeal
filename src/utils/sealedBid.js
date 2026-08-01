@@ -9,6 +9,7 @@ import {
   Wallet,
   verifyMessage,
 } from "ethers";
+import { eciesEncryptForTee } from "../lib/tee/goEcies";
 
 // Must match the Solidity constant: bytes32("VEILPAY_TEE_ACTION_RESULT")
 // (a direct string-to-bytes32 cast, mirroring Flare's own
@@ -41,7 +42,10 @@ export function computeTermsCommitment({ amount, nonce, bidder }) {
 
 /// ECIES-encrypts the true bid terms so only the holder of the TEE's
 /// private key can read them — the on-chain contract only ever sees the
-/// commitment hash and this opaque ciphertext.
+/// commitment hash and this opaque ciphertext. Uses go-ethereum's
+/// crypto/ecies scheme (ECIES_AES128_SHA256) via eciesEncryptForTee, NOT
+/// eth-crypto's ECIES variant — the real TEE node's /decrypt endpoint only
+/// understands the former; the two are not interoperable.
 ///
 /// `amount` is emitted as a bare JSON number, not a quoted string: the real
 /// TEE extension decodes this plaintext straight into Go's `*big.Int`
@@ -50,8 +54,8 @@ export function computeTermsCommitment({ amount, nonce, bidder }) {
 /// payload is built manually instead.
 export async function encryptBidTerms({ amount, nonce, bidder }, teePublicKey) {
   const plaintext = `{"amount":${amount},"nonce":${JSON.stringify(nonce)},"bidder":${JSON.stringify(bidder)}}`;
-  const encrypted = await EthCrypto.encryptWithPublicKey(teePublicKey, plaintext);
-  return "0x" + EthCrypto.cipher.stringify(encrypted);
+  const ciphertext = await eciesEncryptForTee(teePublicKey, new TextEncoder().encode(plaintext));
+  return hexlify(ciphertext);
 }
 
 /// The TEE-side counterpart — in production this only ever runs inside the

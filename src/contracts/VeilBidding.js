@@ -10,12 +10,12 @@ export const VEIL_BIDDING_ABI = [{"type":"constructor","inputs":[{"name":"_teeEx
 // FlareTeeManager. Override via .env if redeployed. Listing metadata
 // (title/description/type/ipfsHash/minBid/minScore/inviteOnly) is stored
 // on-chain — no off-chain index or localStorage cache required to render a listing.
-const DEFAULT_ADDRESS = "0x234C35bBA5CF35E9A709498d968071A555c9096b";
+const DEFAULT_ADDRESS = "0xdF5C10261e99617912E7bB4aeEFab35a0Ecdd963";
 export const VEIL_BIDDING_ADDRESS = import.meta.env.VITE_VEILBIDDING_ADDRESS || DEFAULT_ADDRESS;
 
 // Block the contract was deployed at — scopes event queries so we don't scan
 // from genesis on every page load.
-export const DEPLOY_BLOCK = Number(import.meta.env.VITE_VEILBIDDING_DEPLOY_BLOCK || 33508610);
+export const DEPLOY_BLOCK = Number(import.meta.env.VITE_VEILBIDDING_DEPLOY_BLOCK || 33512033);
 
 // Mirrors the contract's MIN_SCORE_THRESHOLD/MAX_SCORE constants.
 export const MIN_SCORE_THRESHOLD = 5;

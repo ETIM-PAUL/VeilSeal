@@ -28,6 +28,7 @@ type Record struct {
 	Active              bool   `json:"active"`
 	LastRunAt           string `json:"lastRunAt,omitempty"`
 	LastOutcome         string `json:"lastOutcome,omitempty"`
+	TotalBidsPlaced     int    `json:"totalBidsPlaced"`
 }
 
 // MaxAmountBig parses MaxAmount as a base-10 chain-amount integer (same scale
@@ -116,7 +117,7 @@ func (s *Store) Delete(wallet string) error {
 // RecordRun stamps the outcome of the most recent evaluation pass so the
 // frontend can show "last run" status without the extension needing a
 // separate events log.
-func (s *Store) RecordRun(wallet, outcome string) {
+func (s *Store) RecordRun(wallet, outcome string, placedCount int) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	r, ok := s.data[normalize(wallet)]
@@ -125,6 +126,7 @@ func (s *Store) RecordRun(wallet, outcome string) {
 	}
 	r.LastRunAt = time.Now().UTC().Format(time.RFC3339)
 	r.LastOutcome = outcome
+	r.TotalBidsPlaced += placedCount
 	_ = s.saveLocked()
 }
 

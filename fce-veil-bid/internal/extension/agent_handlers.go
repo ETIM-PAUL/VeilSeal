@@ -96,13 +96,14 @@ type updateAgentRequest struct {
 }
 
 type agentResponse struct {
-	Wallet      string `json:"wallet"`
-	Keyword     string `json:"keyword"`
-	ItemType    string `json:"itemType"`
-	MaxAmount   string `json:"maxAmount"`
-	Active      bool   `json:"active"`
-	LastRunAt   string `json:"lastRunAt,omitempty"`
-	LastOutcome string `json:"lastOutcome,omitempty"`
+	Wallet          string `json:"wallet"`
+	Keyword         string `json:"keyword"`
+	ItemType        string `json:"itemType"`
+	MaxAmount       string `json:"maxAmount"`
+	Active          bool   `json:"active"`
+	LastRunAt       string `json:"lastRunAt,omitempty"`
+	LastOutcome     string `json:"lastOutcome,omitempty"`
+	TotalBidsPlaced int    `json:"totalBidsPlaced"`
 }
 
 // toAgentResponse deliberately omits EncryptedPrivateKey — the ciphertext
@@ -112,6 +113,7 @@ func toAgentResponse(r *agents.Record) agentResponse {
 		Wallet: r.Wallet, Keyword: r.Keyword, ItemType: r.ItemType,
 		MaxAmount: r.MaxAmount, Active: r.Active,
 		LastRunAt: r.LastRunAt, LastOutcome: r.LastOutcome,
+		TotalBidsPlaced: r.TotalBidsPlaced,
 	}
 }
 

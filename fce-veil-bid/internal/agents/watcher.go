@@ -109,31 +109,36 @@ func (w *Watcher) runOne(ctx context.Context, r *Record) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
-	outcome, err := w.evaluate(ctx, r)
+	outcome, placed, err := w.evaluate(ctx, r)
 	if err != nil {
 		logger.Errorf("agent %s: %v", r.Wallet, err)
-		w.store.RecordRun(r.Wallet, "error: "+err.Error())
+		w.store.RecordRun(r.Wallet, "error: "+err.Error(), 0)
 		return
 	}
-	w.store.RecordRun(r.Wallet, outcome)
+	w.store.RecordRun(r.Wallet, outcome, placed)
 }
 
-func (w *Watcher) evaluate(ctx context.Context, r *Record) (string, error) {
+// evaluate returns a human-readable summary of this pass plus how many bids
+// it actually placed (so the caller can add that to the agent's lifetime
+// total — a run's outcome string only describes what happened *this* pass,
+// which is legitimately "0 placed" once the agent has already bid on
+// everything that currently matches).
+func (w *Watcher) evaluate(ctx context.Context, r *Record) (string, int, error) {
 	if w.chainClient == nil {
-		return "", fmt.Errorf("watcher not configured: missing CHAIN_URL")
+		return "", 0, fmt.Errorf("watcher not configured: missing CHAIN_URL")
 	}
 	wallet := common.HexToAddress(r.Wallet)
 	maxAmount, err := r.MaxAmountBig()
 	if err != nil {
-		return "", err
+		return "", 0, err
 	}
 
 	count, err := listingCount(ctx, w.chainClient, w.instructionSender)
 	if err != nil {
-		return "", fmt.Errorf("reading listingCount: %w", err)
+		return "", 0, fmt.Errorf("reading listingCount: %w", err)
 	}
 
-	placed, overBudget := 0, 0
+	placed, overBudget, alreadyBidCount := 0, 0, 0
 	for i := int64(1); i <= count.Int64(); i++ {
 		id := big.NewInt(i)
 		listing, err := getListing(ctx, w.chainClient, w.instructionSender, id)
@@ -141,7 +146,14 @@ func (w *Watcher) evaluate(ctx context.Context, r *Record) (string, error) {
 			logger.Errorf("agent %s: listing %d: reading listing: %v", r.Wallet, i, err)
 			continue
 		}
-		if !w.matches(ctx, listing, id, wallet, r) {
+
+		reason := w.matchReason(ctx, listing, id, wallet, r)
+		if reason == reasonAlreadyBid {
+			alreadyBidCount++
+			continue
+		}
+		if reason != "" {
+			logger.Infof("agent %s: listing %d: skip (%s)", r.Wallet, i, reason)
 			continue
 		}
 
@@ -150,6 +162,7 @@ func (w *Watcher) evaluate(ctx context.Context, r *Record) (string, error) {
 			// Per spec: if the recommended amount exceeds the wallet's max,
 			// skip the listing entirely rather than clamping to the max.
 			overBudget++
+			logger.Infof("agent %s: listing %d: skip (recommended bid %s exceeds max %s)", r.Wallet, i, bidAmount, maxAmount)
 			continue
 		}
 
@@ -160,46 +173,45 @@ func (w *Watcher) evaluate(ctx context.Context, r *Record) (string, error) {
 		placed++
 	}
 
-	return fmt.Sprintf("bids placed: %d, skipped (over max amount): %d", placed, overBudget), nil
+	outcome := fmt.Sprintf(
+		"bids placed: %d, skipped (over max amount): %d, already bid: %d", placed, overBudget, alreadyBidCount,
+	)
+	return outcome, placed, nil
 }
 
-func (w *Watcher) matches(ctx context.Context, listing *Listing, id *big.Int, wallet common.Address, r *Record) bool {
+const reasonAlreadyBid = "already bid"
+
+// matchReason returns "" when the listing is a match, otherwise a
+// human-readable reason it was skipped (also used for per-listing logging).
+func (w *Watcher) matchReason(ctx context.Context, listing *Listing, id *big.Int, wallet common.Address, r *Record) string {
 	if !listing.InviteOnly || listing.Revealed {
-		logger.Infof("agent %s: listing %s: skip (inviteOnly=%v revealed=%v)", r.Wallet, id, listing.InviteOnly, listing.Revealed)
-		return false
+		return fmt.Sprintf("not invite-only (inviteOnly=%v) or already revealed (revealed=%v)", listing.InviteOnly, listing.Revealed)
 	}
 	if uint64(time.Now().Unix()) >= listing.Deadline {
-		logger.Infof("agent %s: listing %s: skip (deadline passed)", r.Wallet, id)
-		return false
+		return "deadline passed"
 	}
 
 	invited, err := isParticipant(ctx, w.chainClient, w.instructionSender, id, wallet)
 	if err != nil {
-		logger.Errorf("agent %s: listing %s: isParticipant: %v", r.Wallet, id, err)
-		return false
+		return fmt.Sprintf("isParticipant error: %v", err)
 	}
 	if !invited {
-		logger.Infof("agent %s: listing %s: skip (not invited)", r.Wallet, id)
-		return false
+		return "not invited"
 	}
 	already, err := alreadyBid(ctx, w.chainClient, w.instructionSender, id, wallet)
 	if err != nil {
-		logger.Errorf("agent %s: listing %s: sealedBids: %v", r.Wallet, id, err)
-		return false
+		return fmt.Sprintf("sealedBids error: %v", err)
 	}
 	if already {
-		logger.Infof("agent %s: listing %s: skip (already bid)", r.Wallet, id)
-		return false
+		return reasonAlreadyBid
 	}
 	if r.Keyword != "" && !strings.Contains(strings.ToLower(listing.Title), strings.ToLower(r.Keyword)) {
-		logger.Infof("agent %s: listing %s: skip (keyword %q not in title %q)", r.Wallet, id, r.Keyword, listing.Title)
-		return false
+		return fmt.Sprintf("keyword %q not in title %q", r.Keyword, listing.Title)
 	}
 	if r.ItemType != "" && !strings.EqualFold(listing.ItemType, r.ItemType) {
-		logger.Infof("agent %s: listing %s: skip (itemType %q != %q)", r.Wallet, id, listing.ItemType, r.ItemType)
-		return false
+		return fmt.Sprintf("itemType %q != %q", listing.ItemType, r.ItemType)
 	}
-	return true
+	return ""
 }
 
 // heuristicBid is the v1 pricing rule: minBid plus a fixed margin. No AI call.

@@ -18,6 +18,7 @@ import {
 import { LuBot, LuTrash2, LuPlay, LuTriangleAlert } from "react-icons/lu";
 
 import { useWallet } from "../context/useWallet";
+import { useBids } from "../context/useBids";
 import { getBrowserSigner, isContractConfigured } from "../contracts/VeilBidding";
 import { eciesEncryptForTee } from "../lib/tee/goEcies";
 import { fetchLiveTeePublicKey } from "../lib/tee/ecies";

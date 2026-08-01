@@ -155,7 +155,7 @@ export default function PlaceBidDrawer({ opened, onClose, bid, onSubmit }) {
               <Alert icon={<LuShieldCheck />} color="amber">
                 {activeBid.inviteOnly
                   ? "This listing is invite-only — only wallets the creator has added can bid."
-                  : `This listing requires a minimum wallet signal score of ${activeBid.minScore.toString()}, privately checked by the TEE before your bid is accepted — your actual score is never revealed.`}
+                  : `This listing requires a minimum wallet signal score of ${activeBid.minScore.toString()}, privately checked by the TEE before your bid is accepted — your actual score is never revealed onchain.`}
               </Alert>
             )}
 

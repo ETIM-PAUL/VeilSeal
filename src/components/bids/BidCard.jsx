@@ -10,6 +10,7 @@ export default function BidCard({ bid, onOpen }) {
   const revealed = isRevealed(bid);
   const winner = revealed ? resolveWinner(bid) : null;
   const iWon = winner?.mine;
+  console.log("revealed", winner)
 
   return (
     <div

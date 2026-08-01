@@ -69,6 +69,27 @@ export function getReadOnlyContract() {
   return getVeilBiddingContract(getReadOnlyProvider());
 }
 
+// Coston2's public RPC caps eth_getLogs at 30 blocks per call. Scanning
+// forward from a now-hours-old DEPLOY_BLOCK to "latest" means hundreds of
+// sequential chunk requests — enough to get rate-limited/dropped by the
+// public RPC outright. A reveal we're looking up just happened (that's the
+// whole reason the caller wants its tx hash), so search backward from the
+// current block instead and stop at the first match — the common case
+// resolves in one or two requests. Bounded so a very old/never-found event
+// still gives up instead of scanning forever.
+const BACKWARD_SEARCH_MAX_CHUNKS = 40; // ~1000 blocks of history
+
+async function findLatestLogBackward(contract, filter, fromBlock, toBlock) {
+  let end = toBlock;
+  for (let i = 0; i < BACKWARD_SEARCH_MAX_CHUNKS && end >= fromBlock; i++) {
+    const start = Math.max(end - LOG_CHUNK_SIZE + 1, fromBlock);
+    const chunk = await contract.queryFilter(filter, start, end);
+    if (chunk.length > 0) return chunk[chunk.length - 1];
+    end = start - 1;
+  }
+  return null;
+}
+
 /// Fetches live on-chain state for a single listing: creator, deadline,
 /// revealed/winner/winningAmount, item metadata (title/description/
 /// itemType/ipfsHash/minBid), plus the settlement tx hash (from the
@@ -94,9 +115,11 @@ export async function fetchOnChainListing(listingId) {
   };
 
   if (listing.revealed) {
+    const provider = getReadOnlyProvider();
+    const currentBlock = await provider.getBlockNumber();
     const filter = contract.filters.BidRevealed(listingId);
-    const events = await contract.queryFilter(filter);
-    result.txHash = events[events.length - 1]?.transactionHash ?? null;
+    const event = await findLatestLogBackward(contract, filter, DEPLOY_BLOCK, currentBlock).catch(() => null);
+    result.txHash = event?.transactionHash ?? null;
   }
 
   return result;

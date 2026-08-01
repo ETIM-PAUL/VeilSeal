@@ -48,6 +48,12 @@ contract VeilBidding {
     uint256 public constant MIN_SCORE_THRESHOLD = 5;
     uint256 public constant MAX_SCORE = 100;
 
+    /// @notice Flat fee (native token) charged to cancel a still-open sealed
+    /// bid before the listing's deadline. Accumulates in this contract and is
+    /// only withdrawable by owner — discourages frivolous cancel/resubmit
+    /// cycling without blocking a genuine change of mind.
+    uint256 public constant CANCEL_FEE = 0.1 ether;
+
     /// @notice Domain-separation prefix the TEE node signs ActionResult hashes
     /// under: keccak256(abi.encode(TEE_ACTION_RESULT_PREFIX, chainId, ActionResult.Hash())),
     /// wrapped with the EIP-191 personal-sign prefix. Must match go-flare-common's
@@ -154,6 +160,7 @@ contract VeilBidding {
     );
     event ParticipantsAdded(uint256 indexed listingId, address[] participants);
     event BidSealed(uint256 indexed listingId, address indexed bidder, bytes32 termsCommitment);
+    event BidCancelled(uint256 indexed listingId, address indexed bidder, uint256 fee);
     event ScoreCheckRequested(uint256 indexed listingId, address indexed bidder, bytes32 instructionId);
     event MyScoreRequested(address indexed wallet, bytes32 instructionId);
     event RevealRequested(uint256 indexed listingId, bytes32 instructionId);
@@ -303,6 +310,31 @@ contract VeilBidding {
         totalBidsPlaced[msg.sender] += 1;
 
         emit BidSealed(_listingId, msg.sender, _termsCommitment);
+    }
+
+    /// @notice Cancel a still-open sealed bid before the listing's deadline,
+    /// for a flat CANCEL_FEE. Works identically whether the bid was placed
+    /// directly or by an auto-bidding agent signing as this same wallet —
+    /// bids are always recorded under the real bidder's address either way.
+    function cancelSealedBid(uint256 _listingId) external payable {
+        Listing storage listing = listings[_listingId];
+        require(listing.deadline != 0, "unknown listing");
+        require(block.timestamp < listing.deadline, "bidding closed");
+        require(!listing.revealed, "already revealed");
+        require(msg.value == CANCEL_FEE, "incorrect cancel fee");
+        require(sealedBids[_listingId][msg.sender].submitted, "no active bid to cancel");
+
+        delete sealedBids[_listingId][msg.sender];
+        _removeBidder(_listingId, msg.sender);
+
+        emit BidCancelled(_listingId, msg.sender, msg.value);
+    }
+
+    /// @notice Sweep accumulated cancellation fees. Owner-only.
+    function withdrawFees(address payable _to) external onlyOwner {
+        require(_to != address(0), "zero address");
+        (bool ok,) = _to.call{ value: address(this).balance }("");
+        require(ok, "transfer failed");
     }
 
     /// @notice Request a private TEE-computed eligibility check for this
@@ -481,6 +513,20 @@ contract VeilBidding {
         require(listingId == _listingId, "attestation listing mismatch");
         require(bidder == msg.sender, "attestation bidder mismatch");
         require(eligible, "not eligible");
+    }
+
+    /// @notice Removes `_bidder` from bidders[_listingId] via swap-pop (order
+    /// doesn't matter — requestReveal just needs every remaining bidder once).
+    function _removeBidder(uint256 _listingId, address _bidder) internal {
+        address[] storage list = bidders[_listingId];
+        uint256 len = list.length;
+        for (uint256 i = 0; i < len; i++) {
+            if (list[i] == _bidder) {
+                list[i] = list[len - 1];
+                list.pop();
+                break;
+            }
+        }
     }
 
     /// @notice Returns the cached extension ID, reverting if not set.

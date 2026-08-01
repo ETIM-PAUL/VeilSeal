@@ -7,6 +7,7 @@ import {
   LuGavel,
   LuActivity,
   LuShieldCheck,
+  LuBot,
 } from "react-icons/lu";
 
 import { NavLink } from "react-router-dom";
@@ -16,6 +17,7 @@ const links = [
   { name: "Treasuries", path: "/treasuries", icon: LuWallet },
   { name: "P2P Transfers", path: "/p2p-transfers", icon: LuArrowLeftRight },
   { name: "Closed Bids", path: "/bids", icon: LuGavel },
+  { name: "Agent", path: "/agents", icon: LuBot },
   { name: "Operations", path: "/operations", icon: LuActivity },
 ];
 

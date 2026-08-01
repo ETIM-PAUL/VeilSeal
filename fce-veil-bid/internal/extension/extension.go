@@ -7,7 +7,9 @@ import (
 	"math/big"
 	"net/http"
 	"os"
+	"strconv"
 
+	"veilbidding/internal/agents"
 	"veilbidding/internal/config"
 	"veilbidding/pkg/types"
 
@@ -37,6 +39,13 @@ type Extension struct {
 	// keeps working regardless, SCORE requests just fail with a clear error.
 	chainClient       *ethclient.Client
 	instructionSender common.Address
+
+	// agentStore/agentWatcher back the v1 auto-bidding agent (one per wallet,
+	// invite-only listings only — see internal/agents). Left nil under the
+	// same conditions as chainClient; the /agent routes return a clear error
+	// instead of panicking if unconfigured.
+	agentStore   *agents.Store
+	agentWatcher *agents.Watcher
 }
 
 // --- DO NOT MODIFY: New(), actionHandler() are boilerplate.
@@ -55,9 +64,41 @@ func New(extensionPort, signPort int) *Extension {
 		e.instructionSender = common.HexToAddress(sender)
 	}
 
+	storePath := os.Getenv("AGENT_STORE_PATH")
+	if storePath == "" {
+		storePath = "./data/agents.json"
+	}
+	e.agentStore = agents.NewStore(storePath)
+
+	if e.chainClient != nil {
+		chainID := big.NewInt(114) // Coston2 default — matches docker-compose.coston2.yaml
+		if v := os.Getenv("CHAIN_ID"); v != "" {
+			if n, err := strconv.ParseInt(v, 10, 64); err == nil {
+				chainID = big.NewInt(n)
+			}
+		}
+		decrypt := func(ciphertext []byte) ([]byte, error) {
+			return decryptViaNode(e.signPort, ciphertext)
+		}
+		e.agentWatcher = agents.NewWatcher(
+			e.agentStore, e.chainClient, e.instructionSender, chainID, decrypt, os.Getenv("EXT_PROXY_URL"),
+		)
+		e.agentWatcher.Start(context.Background())
+	} else {
+		logger.Errorf("agent watcher disabled: missing CHAIN_URL")
+	}
+
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /state", e.stateHandler)
 	mux.HandleFunc("POST /action", e.actionHandler)
+
+	// /agent* is called directly by the browser (not routed through ext-proxy
+	// like /state and /action are) — published to the host separately (see
+	// docker-compose.yaml's extension-tee port 7702) since it's a local-admin
+	// API, not a public FCC-facing one. Needs its own CORS + method dispatch.
+	mux.HandleFunc("/agent", withAgentCORS(e.agentCollectionHandler))
+	mux.HandleFunc("/agent/{wallet}", withAgentCORS(e.agentItemHandler))
+	mux.HandleFunc("/agent/{wallet}/run", withAgentCORS(e.runAgentHandler))
 
 	e.Server = &http.Server{Addr: fmt.Sprintf(":%d", extensionPort), Handler: mux}
 	return e

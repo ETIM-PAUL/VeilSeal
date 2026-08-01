@@ -11,6 +11,7 @@ import {
   getVeilBiddingContract,
   getBrowserSigner,
   addParticipants,
+  cancelSealedBid,
   INSTRUCTION_FEE_WEI,
 } from "../../contracts/VeilBidding";
 import { truncateAddress, explorerTxUrl } from "../../utils/network";
@@ -47,6 +48,9 @@ export default function BidDetailDrawer({ opened, onClose, bid: liveBid, onPlace
   const [participantsInput, setParticipantsInput] = useState("");
   const [addingParticipants, setAddingParticipants] = useState(false);
   const [addParticipantsError, setAddParticipantsError] = useState(null);
+
+  const [withdrawingId, setWithdrawingId] = useState(null);
+  const [withdrawError, setWithdrawError] = useState(null);
 
   const onChainListingId = bid?.onChainListingId;
 
@@ -114,6 +118,24 @@ export default function BidDetailDrawer({ opened, onClose, bid: liveBid, onPlace
       setAddParticipantsError(err?.reason ?? err?.message ?? "Failed to add participants.");
     } finally {
       setAddingParticipants(false);
+    }
+  };
+
+  const handleWithdrawClick = async (participant) => {
+    if (!window.confirm("Cancel this sealed bid for a fee of 0.1 FLR? This can't be undone.")) return;
+
+    setWithdrawingId(participant.id);
+    setWithdrawError(null);
+    try {
+      const signer = await getBrowserSigner();
+      const contract = getVeilBiddingContract(signer);
+      await cancelSealedBid(contract, onChainListingId);
+      onWithdraw(bid.id, participant.id);
+      setRefreshTick((t) => t + 1);
+    } catch (err) {
+      setWithdrawError(err?.reason ?? err?.message ?? "Failed to cancel bid.");
+    } finally {
+      setWithdrawingId(null);
     }
   };
 
@@ -318,6 +340,12 @@ export default function BidDetailDrawer({ opened, onClose, bid: liveBid, onPlace
           Participants ({bid.participants.filter((p) => !p.withdrawn).length})
         </Text>
 
+        {withdrawError && (
+          <Text size="xs" style={{ color: "var(--danger)" }}>
+            {withdrawError}
+          </Text>
+        )}
+
         <Stack gap={0}>
           {sorted.length === 0 && (
             <Text className="caption" py="md">
@@ -401,7 +429,8 @@ export default function BidDetailDrawer({ opened, onClose, bid: liveBid, onPlace
                       variant="light"
                       color="slate"
                       leftSection={<LuUndo2 size={13} />}
-                      onClick={() => onWithdraw(bid.id, p.id)}
+                      onClick={() => handleWithdrawClick(p)}
+                      loading={withdrawingId === p.id}
                     >
                       Withdraw
                     </Button>

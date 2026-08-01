@@ -62,14 +62,27 @@ services:
       - EXTENSION_PORT=7702
       - TYPES_SERVER_PORT=8100
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      # Used by the auto-bidding agent watcher to fetch the TEE's own ECIES
+      # public key (GET /info) so it can encrypt sealed bid terms the same
+      # way a browser bidder would. Same value as VITE_EXT_PROXY_URL.
+      - EXT_PROXY_URL=${EXT_PROXY_URL:-}
+      - AGENT_STORE_PATH=/app/data/agents.json
     ports:
       - "${TYPES_SERVER_BIND:-127.0.0.1:8100}:8100"
+      # Local-admin agent API (create/toggle/delete/run) — called directly by
+      # the browser dev server on the same machine, not routed through
+      # ext-proxy's public tunnel like /state and /action are (see
+      # internal/extension/extension.go's New()).
+      - "${AGENT_API_BIND:-127.0.0.1:7702}:7702"
+    volumes:
+      - agent_store:/app/data
     depends_on:
       - ext-proxy
 
 volumes:
   tee_proxy_config:
     external: true
+  agent_store:
 
 networks:
   default:

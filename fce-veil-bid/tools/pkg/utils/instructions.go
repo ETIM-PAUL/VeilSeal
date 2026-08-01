@@ -25,6 +25,10 @@ import (
 // Override via FEE_WEI env var.
 var DefaultFee = big.NewInt(1_000_000_000_000)
 
+// MinScoreThreshold mirrors VeilBidding.sol's MIN_SCORE_THRESHOLD — the
+// lowest minScore createListing accepts for a score-gated (non-invite-only) listing.
+const MinScoreThreshold = 5
+
 func init() {
 	if feeStr := os.Getenv("FEE_WEI"); feeStr != "" {
 		if fee, ok := new(big.Int).SetString(feeStr, 10); ok {
@@ -144,16 +148,18 @@ func SetTeeAddress(s *support.Support, contractAddr, teeAddr common.Address) err
 }
 
 // ListingMetadata is the off-chain-authored, on-chain-stored description of
-// a sealed-bid item.
+// a sealed-bid item. Every listing is gated one way or the other — there's
+// no "open to everyone" mode: either InviteOnly (only InitialParticipants may
+// ever bid, MinScore is ignored) or score-gated (MinScore must be 5-100,
+// TEE-verified per bidder; InitialParticipants still bypass it).
 type ListingMetadata struct {
-	Title       string
-	Description string
-	ItemType    string
-	IpfsHash    string
-	MinBid      *big.Int
-	// MinScore gates bidding on a TEE-verified wallet signal score — 0 means
-	// open to everyone. InitialParticipants bypass the gate entirely.
+	Title               string
+	Description         string
+	ItemType            string
+	IpfsHash            string
+	MinBid              *big.Int
 	MinScore            *big.Int
+	InviteOnly          bool
 	InitialParticipants []common.Address
 }
 
@@ -171,16 +177,16 @@ func CreateListing(s *support.Support, contractAddr common.Address, meta Listing
 
 	minScore := meta.MinScore
 	if minScore == nil {
-		minScore = big.NewInt(0)
+		minScore = big.NewInt(MinScoreThreshold)
 	}
 
 	tx, err := c.CreateListing(
-		opts, meta.Title, meta.Description, meta.ItemType, meta.IpfsHash, meta.MinBid, minScore, deadline, meta.InitialParticipants,
+		opts, meta.Title, meta.Description, meta.ItemType, meta.IpfsHash, meta.MinBid, minScore, meta.InviteOnly, deadline, meta.InitialParticipants,
 	)
 	if err != nil {
 		return nil, common.Hash{}, errors.Errorf(
 			"createListing: %s (%s)", err,
-			simulateRevert(s, contractAddr, nil, "createListing", meta.Title, meta.Description, meta.ItemType, meta.IpfsHash, meta.MinBid, minScore, deadline, meta.InitialParticipants),
+			simulateRevert(s, contractAddr, nil, "createListing", meta.Title, meta.Description, meta.ItemType, meta.IpfsHash, meta.MinBid, minScore, meta.InviteOnly, deadline, meta.InitialParticipants),
 		)
 	}
 	receipt, err := bind.WaitMined(context.Background(), s.ChainClient, tx)
@@ -306,6 +312,65 @@ func RequestAndGetScoreAttestation(s *support.Support, contractAddr common.Addre
 		Status:        resp.Result.Status,
 		Signature:     resp.Signature,
 	}, nil
+}
+
+// SendRequestMyScore requests a private, informational read of the caller's
+// own signal score — no listing/threshold involved, nothing ever posted
+// back on-chain. Returns the FCC instruction ID to poll the proxy for the result.
+func SendRequestMyScore(s *support.Support, contractAddr common.Address) (common.Hash, common.Hash, error) {
+	c, err := veilbidding.NewVeilBidding(contractAddr, s.ChainClient)
+	if err != nil {
+		return common.Hash{}, common.Hash{}, errors.Errorf("failed to bind contract: %s", err)
+	}
+	opts, err := bind.NewKeyedTransactorWithChainID(s.Prv, s.ChainID)
+	if err != nil {
+		return common.Hash{}, common.Hash{}, errors.Errorf("failed to create transactor: %s", err)
+	}
+	opts.Value = DefaultFee
+
+	tx, err := c.RequestMyScore(opts)
+	if err != nil {
+		return common.Hash{}, common.Hash{}, errors.Errorf("requestMyScore: %s (%s)", err, simulateRevert(s, contractAddr, DefaultFee, "requestMyScore"))
+	}
+	receipt, err := bind.WaitMined(context.Background(), s.ChainClient, tx)
+	if err != nil {
+		return common.Hash{}, common.Hash{}, errors.Errorf("failed waiting for requestMyScore: %s", err)
+	}
+	if receipt.Status != 1 {
+		return common.Hash{}, common.Hash{}, errors.Errorf("requestMyScore failed with status %d", receipt.Status)
+	}
+	if len(receipt.Logs) == 0 {
+		return common.Hash{}, common.Hash{}, errors.New("no logs found in receipt")
+	}
+	instructionSent, err := s.TeeVerification.ParseTeeInstructionsSent(*receipt.Logs[0])
+	if err != nil {
+		return common.Hash{}, common.Hash{}, errors.Errorf("failed to parse TeeInstructionsSent event: %s", err)
+	}
+	return instructionSent.InstructionId, receipt.TxHash, nil
+}
+
+// RequestAndGetMyScore runs the my-score round trip: sends requestMyScore,
+// polls the proxy for the TEE's result, and returns the decoded score.
+func RequestAndGetMyScore(s *support.Support, contractAddr common.Address, proxyURL string) (int64, error) {
+	instructionID, _, err := SendRequestMyScore(s, contractAddr)
+	if err != nil {
+		return 0, errors.Errorf("requestMyScore: %s", err)
+	}
+
+	resp, err := fccutils.ActionResult(proxyURL, instructionID)
+	if err != nil {
+		return 0, errors.Errorf("poll my-score result: %s", err)
+	}
+	if resp.Result.Status != 1 {
+		return 0, errors.Errorf("TEE my-score check failed: %s", resp.Result.Log)
+	}
+
+	vals, err := types.MyScoreResultArgs.Unpack(resp.Result.Data)
+	if err != nil {
+		return 0, errors.Errorf("decode my-score result: %s", err)
+	}
+	score := vals[1].(*big.Int)
+	return score.Int64(), nil
 }
 
 // SendRequestReveal routes every sealed bid for a listing to the TEE and

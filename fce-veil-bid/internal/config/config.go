@@ -11,9 +11,9 @@ const (
 	Version = "0.1.0"
 
 	// OPType and OPCommand strings — must match the bytes32 constants in contracts/InstructionSender.sol.
-	OPTypeBid       = "BID"
-	OPCommandReveal = "REVEAL"
-	OPCommandScore  = "SCORE"
+	OPTypeBid        = "BID"
+	OPCommandReveal  = "REVEAL"
+	OPCommandScore   = "SCORE"
 	OPCommandMyScore = "MY_SCORE"
 
 	TimeoutShutdown = 5 * time.Second

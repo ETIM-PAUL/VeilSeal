@@ -32,7 +32,7 @@ import {
   getVeilBiddingContract,
   getBrowserSigner,
   isContractConfigured,
-  INVITE_ONLY_MIN_SCORE,
+  MIN_SCORE_THRESHOLD,
 } from "../../contracts/VeilBidding";
 import { toChainAmount } from "../../utils/sealedBid";
 import { uploadFileToPinata, ipfsGatewayUrl, isPinataConfigured } from "../../lib/pinata";
@@ -134,8 +134,8 @@ export default function NewBidDrawer({ opened, onClose, onCreate }) {
       const signer = await getBrowserSigner();
       const contract = getVeilBiddingContract(signer);
       const deadlineUnix = Math.floor(form.deadline.getTime() / 1000);
-      const minScore =
-        form.accessMode === "invite" ? BigInt(INVITE_ONLY_MIN_SCORE) : BigInt(Math.round(form.minScore));
+      const inviteOnly = form.accessMode === "invite";
+      const minScore = BigInt(Math.round(form.minScore));
       const initialParticipants = parseParticipants(form.participants);
       const tx = await contract.createListing(
         form.title,
@@ -144,6 +144,7 @@ export default function NewBidDrawer({ opened, onClose, onCreate }) {
         form.ipfsHash,
         toChainAmount(form.minBid),
         minScore,
+        inviteOnly,
         deadlineUnix,
         initialParticipants
       );
@@ -170,6 +171,7 @@ export default function NewBidDrawer({ opened, onClose, onCreate }) {
         deadline: form.deadline.toISOString(),
         minBid: form.minBid,
         minScore,
+        inviteOnly,
         onChainListingId: createdEvent.args.listingId.toString(),
         txHash: tx.hash,
       });
@@ -288,14 +290,14 @@ export default function NewBidDrawer({ opened, onClose, onCreate }) {
                     <Stack gap="sm" mt="sm">
                       <Text size="xs" className="ink-dim">
                         TEE-verified privately per bidder — their exact score
-                        is never revealed, only whether they clear your bar.
+                        is never revealed onchain, only whether they clear your bar.
                       </Text>
 
                       <NumberInput
-                        label="Minimum Score (0-100)"
+                        label={`Minimum Score (${MIN_SCORE_THRESHOLD}-100)`}
                         value={form.minScore}
                         onChange={set("minScore")}
-                        min={1}
+                        min={MIN_SCORE_THRESHOLD}
                         max={100}
                       />
 

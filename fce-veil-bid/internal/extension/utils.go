@@ -58,7 +58,7 @@ func bidDataFixed(action teetypes.Action) (*instruction.DataFixed, bool) {
 		return nil, false
 	}
 	switch df.OPCommand {
-	case teeutils.ToHash(config.OPCommandReveal), teeutils.ToHash(config.OPCommandScore):
+	case teeutils.ToHash(config.OPCommandReveal), teeutils.ToHash(config.OPCommandScore), teeutils.ToHash(config.OPCommandMyScore):
 		return df, true
 	default:
 		return df, false

@@ -109,14 +109,52 @@ func (e *Extension) processBid(action teetypes.Action, df *instruction.DataFixed
 		b, _ := json.Marshal(ar)
 		return http.StatusOK, b
 
+	case df.OPCommand == teeutils.ToHash(config.OPCommandMyScore):
+		ar := e.processMyScore(action, df)
+		b, _ := json.Marshal(ar)
+		return http.StatusOK, b
+
 	default:
 		return http.StatusNotImplemented, []byte(fmt.Sprintf(
-			"unsupported op command: received %s, expected %s (%s) or %s (%s)",
+			"unsupported op command: received %s, expected %s (%s), %s (%s), or %s (%s)",
 			df.OPCommand.Hex(),
 			teeutils.ToHash(config.OPCommandReveal).Hex(), config.OPCommandReveal,
 			teeutils.ToHash(config.OPCommandScore).Hex(), config.OPCommandScore,
+			teeutils.ToHash(config.OPCommandMyScore).Hex(), config.OPCommandMyScore,
 		))
 	}
+}
+
+// processMyScore reads the requesting wallet's on-chain signals and returns
+// its actual computed score — deliberately different from processScoreCheck,
+// which only ever reveals a boolean. This is purely informational: the
+// frontend polls the proxy directly and shows it only to that wallet, nothing
+// is ever posted back on-chain, so there's no "someone else's score leaked"
+// risk to guard against here.
+func (e *Extension) processMyScore(action teetypes.Action, df *instruction.DataFixed) teetypes.ActionResult {
+	if len(df.OriginalMessage) == 0 {
+		return buildResult(action, df, nil, 0, fmt.Errorf("originalMessage is empty"))
+	}
+	if e.chainClient == nil {
+		return buildResult(action, df, nil, 0, fmt.Errorf("MY_SCORE handler not configured: missing CHAIN_URL"))
+	}
+
+	wallet, err := structs.Decode[common.Address](types.MyScoreMessageArg, df.OriginalMessage)
+	if err != nil {
+		return buildResult(action, df, nil, 0, fmt.Errorf("decoding my-score request: %v", err))
+	}
+
+	score, err := computeScore(context.Background(), e.chainClient, e.instructionSender, wallet)
+	if err != nil {
+		return buildResult(action, df, nil, 0, fmt.Errorf("computing wallet score: %v", err))
+	}
+
+	encoded, err := types.MyScoreResultArgs.Pack(wallet, big.NewInt(int64(score)))
+	if err != nil {
+		return buildResult(action, df, nil, 0, fmt.Errorf("ABI encode my-score result: %v", err))
+	}
+
+	return buildResult(action, df, encoded, 1, nil)
 }
 
 // processScoreCheck reads the requesting wallet's on-chain signals (balance,

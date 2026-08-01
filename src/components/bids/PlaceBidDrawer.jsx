@@ -23,7 +23,6 @@ import {
   getBrowserSigner,
   isContractConfigured,
   fetchIsParticipant,
-  isInviteOnly,
   INSTRUCTION_FEE_WEI,
   EMPTY_ATTESTATION,
 } from "../../contracts/VeilBidding";
@@ -96,12 +95,13 @@ export default function PlaceBidDrawer({ opened, onClose, bid, onSubmit }) {
 
       let attestation = EMPTY_ATTESTATION;
       const minScore = activeBid.minScore ?? 0n;
-      if (minScore > 0n) {
+      const gated = activeBid.inviteOnly || minScore > 0n;
+      if (gated) {
         const isInvited = await fetchIsParticipant(activeBid.onChainListingId, wallet);
         if (!isInvited) {
-          if (isInviteOnly(minScore)) {
-            // No score can ever clear this bar — don't waste a tx/fee on a
-            // doomed check, fail fast with a clear reason instead.
+          if (activeBid.inviteOnly) {
+            // No score check applies at all for invite-only listings — don't
+            // waste a tx/fee on a doomed check, fail fast with a clear reason.
             throw new Error("This listing is invite-only and your wallet hasn't been added by the creator.");
           }
 
@@ -151,9 +151,9 @@ export default function PlaceBidDrawer({ opened, onClose, bid, onSubmit }) {
               other bidders cannot see it.
             </Alert>
 
-            {activeBid.minScore > 0n && (
+            {(activeBid.inviteOnly || activeBid.minScore > 0n) && (
               <Alert icon={<LuShieldCheck />} color="amber">
-                {isInviteOnly(activeBid.minScore)
+                {activeBid.inviteOnly
                   ? "This listing is invite-only — only wallets the creator has added can bid."
                   : `This listing requires a minimum wallet signal score of ${activeBid.minScore.toString()}, privately checked by the TEE before your bid is accepted — your actual score is never revealed.`}
               </Alert>

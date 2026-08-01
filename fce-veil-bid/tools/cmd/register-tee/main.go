@@ -2,11 +2,11 @@ package main
 
 import (
 	"encoding/hex"
+	"flag"
+	"os"
 	"veilbidding/tools/pkg/configs"
 	"veilbidding/tools/pkg/fccutils"
 	"veilbidding/tools/pkg/support"
-	"flag"
-	"os"
 
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 )

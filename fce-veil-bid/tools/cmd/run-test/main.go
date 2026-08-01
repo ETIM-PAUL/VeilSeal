@@ -85,6 +85,10 @@ func main() {
 		ItemType:    "file",
 		IpfsHash:    "",
 		MinBid:      big.NewInt(*amountF),
+		// Every listing is gated now — add the bidder (same wallet as the
+		// keeper here) as a participant so the E2E test isn't also testing
+		// the scoring formula's reachability, just the reveal flow.
+		InitialParticipants: []common.Address{bidder},
 	}
 	listingId, createTx, err := instrutils.CreateListing(s, contractAddr, meta, deadline)
 	if err != nil {

@@ -3,13 +3,13 @@ package main
 import (
 	"crypto/ecdsa"
 	"flag"
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"os"
 	"strings"
 	"veilbidding/tools/pkg/configs"
 	"veilbidding/tools/pkg/fccutils"
 	"veilbidding/tools/pkg/support"
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/flare-foundation/go-flare-common/pkg/logger"
 )
 
 func main() {

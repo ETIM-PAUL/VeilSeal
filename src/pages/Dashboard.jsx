@@ -1,12 +1,13 @@
 import { useEffect, useState } from "react";
 import { SimpleGrid, Grid, Stack, Title, Text, Button, Group } from "@mantine/core";
 
-import { LuWallet, LuArrowLeftRight, LuGavel, LuUsers, LuPlus } from "react-icons/lu";
+import { LuWallet, LuArrowLeftRight, LuGavel, LuUsers, LuPlus, LuShieldCheck } from "react-icons/lu";
 
 import StatCard from "../components/dashboard/StatCard";
 import StatCardSkeleton from "../components/common/StatCardSkeleton";
 import ActivityFeed from "../components/dashboard/ActivityFeed";
 import ActivityFeedSkeleton from "../components/dashboard/ActivityFeedSkeleton";
+import SignalScoreModal from "../components/dashboard/SignalScoreModal";
 
 import { dashboardStats } from "../data/mockData";
 import { useDisclosure } from "@mantine/hooks";
@@ -18,6 +19,7 @@ const icons = [LuWallet, LuArrowLeftRight, LuGavel, LuUsers];
 export default function Dashboard() {
   const [opened, { open, close }] = useDisclosure(false);
   const [openedP2p, { open: openP2p, close: closeP2p }] = useDisclosure(false);
+  const [scoreOpened, { open: openScore, close: closeScore }] = useDisclosure(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -38,7 +40,13 @@ export default function Dashboard() {
             </Text>
           </div>
 
-          <Button leftSection={<LuPlus size={15} />}>New Transaction</Button>
+          <Group gap="sm">
+            <Button variant="subtle" leftSection={<LuShieldCheck size={15} />} onClick={openScore}>
+              Check My Signal Score
+            </Button>
+
+            <Button leftSection={<LuPlus size={15} />}>New Transaction</Button>
+          </Group>
         </Group>
 
         <SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }}>
@@ -100,6 +108,7 @@ export default function Dashboard() {
 
       <NewTreasuryDrawer opened={opened} onClose={close} />
       <NewTransferDrawer opened={openedP2p} onClose={closeP2p} />
+      <SignalScoreModal opened={scoreOpened} onClose={closeScore} />
     </>
   );
 }

@@ -11,7 +11,6 @@ import {
   getVeilBiddingContract,
   getBrowserSigner,
   addParticipants,
-  isInviteOnly,
   INSTRUCTION_FEE_WEI,
 } from "../../contracts/VeilBidding";
 import { truncateAddress, explorerTxUrl } from "../../utils/network";
@@ -168,13 +167,13 @@ export default function BidDetailDrawer({ opened, onClose, bid: liveBid, onPlace
           </div>
         </Group>
 
-        {bid.minScore > 0n && (
+        {(bid.inviteOnly || bid.minScore > 0n) && (
           <Group gap={6}>
             <LuShieldCheck size={13} color="var(--amber)" />
-            <Text size="xs" className="ink-dim">
-              {isInviteOnly(bid.minScore)
-                ? "Invite only — only creator-invited wallets can bid."
-                : `Gated listing — bidders need a TEE-verified signal score of at least ${bid.minScore.toString()}, unless invited directly.`}
+            <Text size="sm" className="ink-dim">
+              {bid.inviteOnly
+                ? "Invite only - only creator-invited wallets can bid."
+                : `Gated listing - bidders need a TEE-verified signal score of at least ${bid.minScore.toString()}, unless invited directly.`}
             </Text>
           </Group>
         )}
@@ -272,7 +271,7 @@ export default function BidDetailDrawer({ opened, onClose, bid: liveBid, onPlace
         )}
 
         {status === "Open" &&
-          bid.minScore > 0n &&
+          (bid.inviteOnly || bid.minScore > 0n) &&
           address &&
           bid.creator?.toLowerCase() === address.toLowerCase() && (
             <div className="panel" style={{ padding: 14 }}>

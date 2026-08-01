@@ -1,8 +1,8 @@
-// Package main is an ad-hoc validation of the SCORE eligibility gate: creates
-// a listing an ordinary wallet can never clear (minScore above the 0-100
-// max), confirms submitSealedBid rejects it, confirms the TEE-signed
-// attestation correctly reports ineligible, then confirms a low-bar listing
-// and a participant-bypassed listing both accept the same wallet.
+// Package main is an ad-hoc validation of the score-gated / invite-only
+// access modes: confirms an invite-only listing rejects a non-participant,
+// confirms a score-gated listing accepts a wallet that clears the (low)
+// bar, and confirms an invite-only listing accepts a wallet that's on the
+// participant list without any TEE round-trip at all.
 package main
 
 import (
@@ -23,6 +23,10 @@ import (
 	"github.com/pkg/errors"
 )
 
+// someoneElse is a well-known burn address used as the sole participant on
+// listings this test's own wallet should NOT be able to bid on.
+var someoneElse = common.HexToAddress("0x000000000000000000000000000000000000dEaD")
+
 func main() {
 	af := flag.String("a", configs.AddressesFile, "file with deployed addresses")
 	cf := flag.String("c", configs.ChainNodeURL, "chain node url")
@@ -42,17 +46,31 @@ func main() {
 	wallet := crypto.PubkeyToAddress(s.Prv.PublicKey)
 	deadline := uint64(time.Now().Unix() + 300)
 
-	// --- Case 1: minScore above the 0-100 max — no wallet can ever clear it ---
-	logger.Infof("Case 1: unreachable minScore (101) — expect rejection")
-	unreachable, _, err := instrutils.CreateListing(s, contractAddr, instrutils.ListingMetadata{
-		Title: "Unreachable Score Gate", Description: "test", ItemType: "file", MinBid: big.NewInt(1), MinScore: big.NewInt(101),
+	// --- Case 1: invite-only, wallet NOT on the list — expect rejection ---
+	logger.Infof("Case 1: invite-only listing, wallet not invited — expect rejection")
+	notInvited, _, err := instrutils.CreateListing(s, contractAddr, instrutils.ListingMetadata{
+		Title: "Invite-Only (not me)", Description: "test", ItemType: "file", MinBid: big.NewInt(1),
+		InviteOnly: true, InitialParticipants: []common.Address{someoneElse},
 	}, deadline)
 	if err != nil {
-		fccutils.FatalWithCause(errors.Errorf("create unreachable listing: %s", err))
+		fccutils.FatalWithCause(errors.Errorf("create invite-only listing: %s", err))
 	}
-	logger.Infof("  Listing #%s created (minScore=101)", unreachable)
+	if _, err := instrutils.SubmitSealedBid(s, contractAddr, notInvited, common.Hash{1}, []byte{1}, instrutils.EmptyAttestation); err == nil {
+		fccutils.FatalWithCause(errors.New("FAIL: submitSealedBid should have reverted (not on participant list)"))
+	} else {
+		logger.Infof("  ✓ submitSealedBid correctly reverted: %s", err)
+	}
 
-	attestation, err := instrutils.RequestAndGetScoreAttestation(s, contractAddr, *pf, unreachable)
+	// --- Case 2: score-gated at the minimum threshold — expect acceptance ---
+	logger.Infof("Case 2: score-gated listing at the minimum threshold (5) — expect acceptance")
+	scored, _, err := instrutils.CreateListing(s, contractAddr, instrutils.ListingMetadata{
+		Title: "Low Score Gate", Description: "test", ItemType: "file", MinBid: big.NewInt(1),
+		MinScore: big.NewInt(instrutils.MinScoreThreshold),
+	}, deadline)
+	if err != nil {
+		fccutils.FatalWithCause(errors.Errorf("create score-gated listing: %s", err))
+	}
+	attestation, err := instrutils.RequestAndGetScoreAttestation(s, contractAddr, *pf, scored)
 	if err != nil {
 		fccutils.FatalWithCause(errors.Errorf("score check: %s", err))
 	}
@@ -60,51 +78,35 @@ func main() {
 	if decodeErr != nil {
 		fccutils.FatalWithCause(errors.Errorf("decode attestation: %s", decodeErr))
 	}
-	logger.Infof("  TEE says eligible=%v (expected false)", eligible)
-	if eligible {
-		fccutils.FatalWithCause(errors.New("FAIL: wallet should not clear an unreachable score gate"))
-	}
-
-	if _, err := instrutils.SubmitSealedBid(s, contractAddr, unreachable, common.Hash{1}, []byte{1}, attestation); err == nil {
-		fccutils.FatalWithCause(errors.New("FAIL: submitSealedBid should have reverted (ineligible attestation)"))
-	} else {
-		logger.Infof("  ✓ submitSealedBid correctly reverted: %s", err)
-	}
-
-	// --- Case 2: minScore=1 — trivially clearable by any active wallet ---
-	logger.Infof("Case 2: low minScore (1) — expect acceptance")
-	low, _, err := instrutils.CreateListing(s, contractAddr, instrutils.ListingMetadata{
-		Title: "Low Score Gate", Description: "test", ItemType: "file", MinBid: big.NewInt(1), MinScore: big.NewInt(1),
-	}, deadline)
-	if err != nil {
-		fccutils.FatalWithCause(errors.Errorf("create low-bar listing: %s", err))
-	}
-	attestation2, err := instrutils.RequestAndGetScoreAttestation(s, contractAddr, *pf, low)
-	if err != nil {
-		fccutils.FatalWithCause(errors.Errorf("score check: %s", err))
-	}
-	eligible2, _ := decodeEligible(attestation2.Data)
-	logger.Infof("  TEE says eligible=%v (expected true)", eligible2)
-	if _, err := instrutils.SubmitSealedBid(s, contractAddr, low, common.Hash{2}, []byte{2}, attestation2); err != nil {
+	logger.Infof("  TEE says eligible=%v (expected true)", eligible)
+	if _, err := instrutils.SubmitSealedBid(s, contractAddr, scored, common.Hash{2}, []byte{2}, attestation); err != nil {
 		fccutils.FatalWithCause(errors.Errorf("FAIL: submitSealedBid should have succeeded: %s", err))
 	}
 	logger.Infof("  ✓ submitSealedBid succeeded with a valid eligible attestation")
 
-	// --- Case 3: participant bypass — unreachable minScore, but invited ---
-	logger.Infof("Case 3: unreachable minScore (101) but wallet is an invited participant — expect acceptance without any attestation")
-	bypass, _, err := instrutils.CreateListing(s, contractAddr, instrutils.ListingMetadata{
-		Title: "Invite-Only Gate", Description: "test", ItemType: "file", MinBid: big.NewInt(1), MinScore: big.NewInt(101),
-		InitialParticipants: []common.Address{wallet},
+	// --- Case 3: invite-only, wallet IS on the list — expect acceptance, no TEE call ---
+	logger.Infof("Case 3: invite-only listing, wallet invited — expect acceptance without any attestation")
+	invited, _, err := instrutils.CreateListing(s, contractAddr, instrutils.ListingMetadata{
+		Title: "Invite-Only (me)", Description: "test", ItemType: "file", MinBid: big.NewInt(1),
+		InviteOnly: true, InitialParticipants: []common.Address{wallet},
 	}, deadline)
 	if err != nil {
 		fccutils.FatalWithCause(errors.Errorf("create invite-only listing: %s", err))
 	}
-	if _, err := instrutils.SubmitSealedBid(s, contractAddr, bypass, common.Hash{3}, []byte{3}, instrutils.EmptyAttestation); err != nil {
+	if _, err := instrutils.SubmitSealedBid(s, contractAddr, invited, common.Hash{3}, []byte{3}, instrutils.EmptyAttestation); err != nil {
 		fccutils.FatalWithCause(errors.Errorf("FAIL: participant bypass should have succeeded: %s", err))
 	}
 	logger.Infof("  ✓ submitSealedBid succeeded via participant bypass, no attestation needed")
 
-	fmt.Println("All SCORE gate tests passed.")
+	// --- Case 4: MY_SCORE — informational, no listing involved ---
+	logger.Infof("Case 4: requestMyScore — expect a raw score back")
+	score, err := instrutils.RequestAndGetMyScore(s, contractAddr, *pf)
+	if err != nil {
+		fccutils.FatalWithCause(errors.Errorf("requestMyScore: %s", err))
+	}
+	logger.Infof("  ✓ my score: %d", score)
+
+	fmt.Println("All access-mode tests passed.")
 }
 
 func decodeEligible(data []byte) (bool, error) {

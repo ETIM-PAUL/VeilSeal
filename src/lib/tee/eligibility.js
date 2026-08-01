@@ -38,4 +38,33 @@ export async function requestEligibilityAttestation(contract, listingId, instruc
   return { attestation, eligible, actionResponse };
 }
 
+/// Requests a private, informational read of the connected wallet's own
+/// signal score — no listing, no threshold, nothing ever posted on-chain.
+/// @param contract ethers Contract instance (VeilBidding)
+/// @param instructionFee bigint — wei value to forward to sendInstructions
+/// @param onStep optional (label: string) => void progress callback
+/// @returns number — the wallet's current 0-100 signal score
+export async function requestMyScore(contract, instructionFee, onStep) {
+  onStep?.("Requesting your signal score…");
+  const tx = await contract.requestMyScore({ value: instructionFee });
+  const receipt = await tx.wait();
+
+  const instructionId = parseInstructionIdFromReceipt(receipt);
+  if (!instructionId) {
+    throw new Error("Could not parse instruction ID from requestMyScore receipt");
+  }
+
+  onStep?.("Waiting for the TEE to compute your score…");
+  const actionResponse = await pollActionResult(instructionId);
+  if (actionResponse.result.status !== 1) {
+    throw new Error(actionResponse.result.log ?? "TEE reported failure");
+  }
+
+  const { data } = actionResultFields(actionResponse);
+  // abi.encode(address wallet, uint256 score) — score is the second 32-byte word.
+  const score = Number(BigInt(`0x${data.slice(-64)}`));
+
+  return score;
+}
+
 export { fetchTeeInfo };

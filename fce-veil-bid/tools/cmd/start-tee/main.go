@@ -10,13 +10,13 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
-	"strings"
 	"runtime"
+	"strings"
 	"syscall"
 	"time"
 
-	"veilbidding/tools/pkg/fccutils"
 	echoserver "veilbidding/pkg/server"
+	"veilbidding/tools/pkg/fccutils"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"

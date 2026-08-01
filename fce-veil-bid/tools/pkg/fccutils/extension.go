@@ -89,7 +89,6 @@ func SetupExtension(
 	return extensionID, nil
 }
 
-
 func AddSupportedKeyTypes(s *support.Support, extensionId *big.Int, keyTypes []common.Hash) error {
 	opts, err := bind.NewKeyedTransactorWithChainID(s.Prv, s.ChainID)
 	if err != nil {

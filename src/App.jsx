@@ -4,6 +4,7 @@ import Routes from "./routes/Routes";
 
 import AppLayout from "./layout/AppLayout";
 import { WalletProvider } from "./context/WalletContext";
+import { BidsProvider } from "./context/BidsContext";
 
 
 export default function App(){
@@ -13,11 +14,15 @@ export default function App(){
 
       <WalletProvider>
 
-        <AppLayout>
+        <BidsProvider>
 
-          <Routes />
+          <AppLayout>
 
-        </AppLayout>
+            <Routes />
+
+          </AppLayout>
+
+        </BidsProvider>
 
       </WalletProvider>
 

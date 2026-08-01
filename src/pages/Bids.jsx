@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Button, Group, Loader, SimpleGrid, Stack, Text, Title } from "@mantine/core";
 import { LuPlus, LuGavel, LuRefreshCw } from "react-icons/lu";
 import { useDisclosure } from "@mantine/hooks";
@@ -12,19 +12,14 @@ import BidDetailDrawer from "../components/bids/BidDetailDrawer";
 import EmptyState from "../components/common/EmptyState";
 
 import { getBidStatus } from "../utils/bids";
-import { fromChainAmount } from "../utils/sealedBid";
-import { useWallet } from "../context/useWallet";
-import { fetchAllListings, fetchBidders, fetchOnChainListing, isContractConfigured } from "../contracts/VeilBidding";
+import { useBids } from "../context/useBids";
 
 export default function Bids() {
-  const { address } = useWallet();
-
-  // Bids shown here are exclusively what's discovered on-chain — no seed/mock
-  // listings. See the fetch effect below.
-  const [bids, setBids] = useState([]);
-  const [chainLoading, setChainLoading] = useState(() => isContractConfigured());
-  const [chainError, setChainError] = useState(null);
-  const [refreshTick, setRefreshTick] = useState(0);
+  // Bids live in BidsContext (mounted once, above the router) so navigating
+  // away from /bids and back doesn't re-fetch or re-flash the skeleton —
+  // only refresh() (the Refresh button) or the connected wallet changing
+  // triggers a re-fetch. See src/context/BidsContext.jsx.
+  const { bids, setBids, loading: chainLoading, error: chainError, refresh } = useBids();
 
   const [search, setSearch] = useState("");
   const [type, setType] = useState("All");
@@ -34,76 +29,6 @@ export default function Bids() {
   const [newOpened, { open: openNew, close: closeNew }] = useDisclosure(false);
   const [placeBidId, setPlaceBidId] = useState(null);
   const [detailBidId, setDetailBidId] = useState(null);
-
-  // Discover every listing that exists on-chain (created by any account, in
-  // any browser) — this is what makes a listing created from one account
-  // visible and biddable from another.
-  useEffect(() => {
-    if (!isContractConfigured()) return;
-    let cancelled = false;
-
-    (async () => {
-      setChainLoading(true);
-      setChainError(null);
-      try {
-        const listings = await fetchAllListings();
-
-        const merged = await Promise.all(
-          listings.map(async (listing) => {
-            const listingId = listing.listingId.toString();
-            const [bidders, onChainListing] = await Promise.all([
-              fetchBidders(listing.listingId).catch(() => []),
-              fetchOnChainListing(listing.listingId).catch(() => null),
-            ]);
-
-            const participants = bidders.map((wallet, index) => ({
-              id: index + 1,
-              wallet,
-              amount: 0,
-              token: "FLR",
-              submittedAt: "On-chain",
-              mine: address ? wallet.toLowerCase() === address.toLowerCase() : false,
-              withdrawn: false,
-            }));
-
-            return {
-              id: `chain-${listingId}`,
-              onChainListingId: listingId,
-              creator: listing.creator,
-              deadline: new Date(Number(listing.deadline) * 1000).toISOString(),
-              txHash: listing.txHash,
-              title: listing.title,
-              description: listing.description,
-              itemType: listing.itemType,
-              ipfsHash: listing.ipfsHash,
-              minBid: fromChainAmount(listing.minBid),
-              minScore: listing.minScore ?? 0n,
-              inviteOnly: Boolean(listing.inviteOnly),
-              token: "FLR",
-              participants,
-              revealed: onChainListing?.revealed ?? false,
-              winner: onChainListing?.winner ?? null,
-              winningAmount: onChainListing?.winningAmount ?? null,
-            };
-          })
-        );
-
-        if (cancelled) return;
-        merged.reverse(); // newest listing first
-        setBids(merged);
-      } catch (err) {
-        if (!cancelled) setChainError(err?.message ?? "Failed to fetch on-chain listings.");
-      } finally {
-        if (!cancelled) setChainLoading(false);
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [refreshTick, address]);
-
-  const refresh = () => setRefreshTick((t) => t + 1);
 
   const filtered = useMemo(() => {
     const list = bids

@@ -53,8 +53,7 @@ export default function Agents() {
       setLoading(true);
       setError(null);
       try {
-        const signer = await getBrowserSigner();
-        const rec = await getAgent(signer, address);
+        const rec = await getAgent(address);
         if (cancelled) return;
         setAgent(rec);
         if (rec) {

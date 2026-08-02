@@ -26,7 +26,7 @@ export function getWinner(bid) {
 }
 
 /// Whether a listing has an authoritative winner yet. On-chain listings only
-/// have sealed (amount-less) bids until the TEE actually reveals them — the
+/// have sealed (amount-less) bids until the TEE actually reveals them - the
 /// bidding deadline passing is not the same as a reveal having happened, so
 /// this checks the contract's own `revealed` flag rather than the deadline.
 /// `onChainOverride` lets callers pass fresher just-fetched on-chain data
@@ -41,7 +41,7 @@ export function isRevealed(bid, onChainOverride) {
 /// The revealed winner, or null if the listing isn't revealed yet. For
 /// on-chain listings this comes from the contract's TEE-attested
 /// winner/winningAmount (matched back to the bidder's participant entry for
-/// its `mine`/`id` fields) — never from comparing sealed (amount-less) bids,
+/// its `mine`/`id` fields) - never from comparing sealed (amount-less) bids,
 /// since only the TEE ever learns the real amounts.
 export function resolveWinner(bid, onChainOverride) {
   if (!bid.onChainListingId) {

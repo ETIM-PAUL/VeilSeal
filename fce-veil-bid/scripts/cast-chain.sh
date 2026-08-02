@@ -1,11 +1,11 @@
-# cast-chain.sh — Foundry CLI helpers when .env sets CHAIN=coston|coston2.
+# cast-chain.sh - Foundry CLI helpers when .env sets CHAIN=coston|coston2.
 #
 # Foundry reads CHAIN from the environment and rejects "coston2". Passing
 # `--chain flare-coston2` after cast call positional args is also unsafe (cast
 # may treat "flare-coston2" as a function argument). Prefer:
-#   cast_rpc_args  — eth_call / cast call (rpc-url only, CHAIN unset)
-#   cast_tx_args   — cast send (rpc-url + --chain flare-*)
-#   foundry_chain_args — forge verify-contract, etc.
+#   cast_rpc_args  - eth_call / cast call (rpc-url only, CHAIN unset)
+#   cast_tx_args   - cast send (rpc-url + --chain flare-*)
+#   foundry_chain_args - forge verify-contract, etc.
 #
 # shellcheck shell=bash
 

@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# extension-setup.sh — Extension-specific setup that runs BEFORE Docker Compose.
+# extension-setup.sh - Extension-specific setup that runs BEFORE Docker Compose.
 #
 # This hook runs between pre-build (contract deployment) and docker-up (starting
-# the TEE). Use it for any setup whose output the extension needs at startup —
+# the TEE). Use it for any setup whose output the extension needs at startup -
 # for example:
 #   - Deploying auxiliary contracts (ERC20 tokens, oracles, vaults)
 #   - Writing config files the extension reads at init (pairs, feeds, pools)
@@ -10,11 +10,11 @@
 #
 # The following variables are available (sourced from .env + config/extension.env):
 #
-#   INSTRUCTION_SENDER   — your deployed InstructionSender contract address
-#   EXTENSION_ID         — your extension's ID on the TeeExtensionRegistry
-#   CHAIN_URL            — chain RPC endpoint
-#   ADDRESSES_FILE       — path to deployed-addresses.json
-#   DEPLOYMENT_PRIVATE_KEY — funded deployer key
+#   INSTRUCTION_SENDER   - your deployed InstructionSender contract address
+#   EXTENSION_ID         - your extension's ID on the TeeExtensionRegistry
+#   CHAIN_URL            - chain RPC endpoint
+#   ADDRESSES_FILE       - path to deployed-addresses.json
+#   DEPLOYMENT_PRIVATE_KEY - funded deployer key
 #
 # Example: deploy a helper contract and write its address to a config file
 #
@@ -25,7 +25,7 @@
 # Why this matters:
 #   The extension container reads config at startup. Anything it needs must be
 #   written to disk BEFORE `docker compose up`. If you deploy contracts after
-#   the container starts, you'll need to restart it — this hook prevents that.
+#   the container starts, you'll need to restart it - this hook prevents that.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -49,6 +49,6 @@ log "INSTRUCTION_SENDER: ${INSTRUCTION_SENDER:-<not set>}"
 log "CHAIN_URL:          ${CHAIN_URL:-<not set>}"
 
 # VeilBidding needs no auxiliary setup before Docker Compose starts (no linked
-# library, no pay token) — this hook is a no-op for now. See the header comment
+# library, no pay token) - this hook is a no-op for now. See the header comment
 # above for what to add here if a future extension needs pre-startup wiring.
-log "No pre-Docker setup required for VeilBidding — skipping."
+log "No pre-Docker setup required for VeilBidding - skipping."

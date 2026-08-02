@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# use-chain.sh — Swap the active .env for a given chain, optionally as a local /
+# use-chain.sh - Swap the active .env for a given chain, optionally as a local /
 # simulated-TEE variant.
 #
 # Usage:
@@ -19,7 +19,7 @@ usage() { echo "usage: $0 [local] <chain> | --list | --help" >&2; }
 
 print_help() {
     cat <<EOF
-use-chain.sh — activate a chain's .env (optionally local/simulated)
+use-chain.sh - activate a chain's .env (optionally local/simulated)
 
 Usage:
   $0 [local] <chain>   Copy .env.<chain> or .env.local.<chain> → .env
@@ -48,7 +48,7 @@ list_options() {
         echo "  - $name"
         found=1
     done
-    [[ "$found" -eq 1 ]] || echo "  (none found — create one by copying .env.example)"
+    [[ "$found" -eq 1 ]] || echo "  (none found - create one by copying .env.example)"
     echo ""
     echo "Local / simulated variants (.env.local.<chain>):"
     found=0

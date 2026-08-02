@@ -22,7 +22,7 @@ import (
 )
 
 // marginBps is the v1 deterministic pricing heuristic: bid minBid plus this
-// margin. Deliberately not an external AI call (see the agreed v1 plan) —
+// margin. Deliberately not an external AI call (see the agreed v1 plan) -
 // fully confidential, no third-party dependency, no prompt/parsing surface.
 const marginBps = 1000 // 10%
 
@@ -36,7 +36,7 @@ type Watcher struct {
 	extProxyURL       string
 
 	// mu serializes every evaluation (the 24h ticker's sweep, "Run Now", and
-	// the immediate first pass on registration can otherwise overlap) — two
+	// the immediate first pass on registration can otherwise overlap) - two
 	// concurrent runs for the same wallet raced the TEE's /decrypt endpoint
 	// and each other's transaction nonce during testing. v1's scale (one
 	// agent per wallet, a handful of listings) makes a single global lock
@@ -91,7 +91,7 @@ func (w *Watcher) RunAll(ctx context.Context) {
 	}
 }
 
-// RunOne evaluates a single wallet's agent on demand — backs the "Run Now"
+// RunOne evaluates a single wallet's agent on demand - backs the "Run Now"
 // button so registering/updating criteria is demoable without waiting a day.
 func (w *Watcher) RunOne(ctx context.Context, wallet string) error {
 	r := w.store.Get(wallet)
@@ -120,7 +120,7 @@ func (w *Watcher) runOne(ctx context.Context, r *Record) {
 
 // evaluate returns a human-readable summary of this pass plus how many bids
 // it actually placed (so the caller can add that to the agent's lifetime
-// total — a run's outcome string only describes what happened *this* pass,
+// total - a run's outcome string only describes what happened *this* pass,
 // which is legitimately "0 placed" once the agent has already bid on
 // everything that currently matches).
 func (w *Watcher) evaluate(ctx context.Context, r *Record) (string, int, error) {
@@ -138,7 +138,7 @@ func (w *Watcher) evaluate(ctx context.Context, r *Record) (string, int, error) 
 		return "", 0, fmt.Errorf("reading listingCount: %w", err)
 	}
 
-	placed, overBudget, alreadyBidCount := 0, 0, 0
+	placed, overBudget, alreadyBidCount, notEligible := 0, 0, 0, 0
 	for i := int64(1); i <= count.Int64(); i++ {
 		id := big.NewInt(i)
 		listing, err := getListing(ctx, w.chainClient, w.instructionSender, id)
@@ -153,6 +153,7 @@ func (w *Watcher) evaluate(ctx context.Context, r *Record) (string, int, error) 
 			continue
 		}
 		if reason != "" {
+			notEligible++
 			logger.Infof("agent %s: listing %d: skip (%s)", r.Wallet, i, reason)
 			continue
 		}
@@ -173,8 +174,11 @@ func (w *Watcher) evaluate(ctx context.Context, r *Record) (string, int, error) 
 		placed++
 	}
 
+	// Every listing lands in exactly one bucket (or was unreadable, logged
+	// above) - nothing should silently vanish from this summary.
 	outcome := fmt.Sprintf(
-		"bids placed: %d, skipped (over max amount): %d, already bid: %d", placed, overBudget, alreadyBidCount,
+		"bids placed: %d, already bid: %d, over max amount: %d, not eligible: %d",
+		placed, alreadyBidCount, overBudget, notEligible,
 	)
 	return outcome, placed, nil
 }
@@ -222,7 +226,7 @@ func heuristicBid(minBid *big.Int) *big.Int {
 }
 
 // placeBid decrypts the wallet's stored key just long enough to sign one
-// transaction, then scrubs it — the plaintext key never touches disk and
+// transaction, then scrubs it - the plaintext key never touches disk and
 // isn't retained in the Record.
 func (w *Watcher) placeBid(ctx context.Context, wallet common.Address, r *Record, listingId, amount *big.Int) error {
 	ciphertext, err := hex.DecodeString(strings.TrimPrefix(r.EncryptedPrivateKey, "0x"))
@@ -276,7 +280,7 @@ func (w *Watcher) placeBid(ctx context.Context, wallet common.Address, r *Record
 }
 
 // scrub best-effort zeroes the private key's backing words. Go's GC may have
-// already copied the value elsewhere by this point — this reduces the window
+// already copied the value elsewhere by this point - this reduces the window
 // the plaintext key sits in memory, it doesn't guarantee erasure.
 func scrub(key *ecdsa.PrivateKey) {
 	if key == nil || key.D == nil {

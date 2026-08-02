@@ -31,7 +31,7 @@ func (e *Extension) actionHandler(w http.ResponseWriter, r *http.Request) {
 	if df, async := bidDataFixed(action); async {
 		go e.finishActionAsync(action)
 		body, _ := json.Marshal(inProgressResult(action, df))
-		logger.Infof("deferring action %s (REVEAL — may decrypt several sealed bids)", action.Data.ID)
+		logger.Infof("deferring action %s (REVEAL - may decrypt several sealed bids)", action.Data.ID)
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write(body)
 		return
@@ -46,7 +46,7 @@ func (e *Extension) actionHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // bidDataFixed returns parsed instruction data when the action is a BID/REVEAL
-// or BID/SCORE — deferred asynchronously since both can involve multiple
+// or BID/SCORE - deferred asynchronously since both can involve multiple
 // round trips (decrypting several sealed bids, or several chain RPC reads)
 // that risk exceeding tee-node's 2s synchronous POST timeout.
 func bidDataFixed(action teetypes.Action) (*instruction.DataFixed, bool) {
@@ -58,7 +58,10 @@ func bidDataFixed(action teetypes.Action) (*instruction.DataFixed, bool) {
 		return nil, false
 	}
 	switch df.OPCommand {
-	case teeutils.ToHash(config.OPCommandReveal), teeutils.ToHash(config.OPCommandScore), teeutils.ToHash(config.OPCommandMyScore):
+	case teeutils.ToHash(config.OPCommandReveal),
+		teeutils.ToHash(config.OPCommandScore),
+		teeutils.ToHash(config.OPCommandMyScore),
+		teeutils.ToHash(config.OPCommandStealthReveal):
 		return df, true
 	default:
 		return df, false

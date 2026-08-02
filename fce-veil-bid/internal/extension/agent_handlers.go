@@ -18,7 +18,7 @@ import (
 )
 
 // withAgentCORS lets the browser call these routes directly (they aren't
-// routed through ext-proxy like /state and /action are — see New()).
+// routed through ext-proxy like /state and /action are - see New()).
 func withAgentCORS(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
@@ -34,7 +34,7 @@ func withAgentCORS(next http.HandlerFunc) http.HandlerFunc {
 
 // verifyAgentAuth requires the request be signed (EIP-191 personal-sign, the
 // same scheme the connected wallet already uses for everything else in this
-// app) by the wallet the route acts on — otherwise anyone who merely knows a
+// app) by the wallet the route acts on - otherwise anyone who merely knows a
 // wallet's address (public on invite lists) could toggle, delete, or trigger
 // someone else's agent. The signed message binds method+path+timestamp, so a
 // signature can't be replayed against a different route and expires after 5
@@ -106,7 +106,7 @@ type agentResponse struct {
 	TotalBidsPlaced int    `json:"totalBidsPlaced"`
 }
 
-// toAgentResponse deliberately omits EncryptedPrivateKey — the ciphertext
+// toAgentResponse deliberately omits EncryptedPrivateKey - the ciphertext
 // never needs to round-trip back to the browser once stored.
 func toAgentResponse(r *agents.Record) agentResponse {
 	return agentResponse{
@@ -145,7 +145,7 @@ func (e *Extension) agentItemHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // createAgentHandler registers this wallet's single v1 agent (or replaces it
-// wholesale — the frontend only offers "create" while none exists). The
+// wholesale - the frontend only offers "create" while none exists). The
 // stored key is ciphertext the browser already ECIES-encrypted to the TEE's
 // public key; this process never sees it in the clear.
 func (e *Extension) createAgentHandler(w http.ResponseWriter, r *http.Request) {
@@ -190,7 +190,7 @@ func (e *Extension) createAgentHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Fire the first evaluation pass immediately so registering doesn't mean
-	// waiting a full day to see anything happen — the HTTP response doesn't
+	// waiting a full day to see anything happen - the HTTP response doesn't
 	// wait on it, "Run Now" / the next GET reflects the outcome once done.
 	if e.agentWatcher != nil {
 		go e.agentWatcher.RunOne(context.Background(), wallet.Hex()) //nolint:errcheck
@@ -199,7 +199,7 @@ func (e *Extension) createAgentHandler(w http.ResponseWriter, r *http.Request) {
 	writeAgentJSON(w, http.StatusCreated, toAgentResponse(rec))
 }
 
-// getAgentHandler is deliberately unauthenticated — it's a read-only status
+// getAgentHandler is deliberately unauthenticated - it's a read-only status
 // check (no key material in the response, see toAgentResponse) fired on every
 // Agents page load, and requiring a wallet signature just to view status
 // meant popping a signing prompt on every visit. Mutating routes below still
@@ -292,7 +292,7 @@ func (e *Extension) deleteAgentHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// runAgentHandler backs the "Run Now" button — synchronously evaluates this
+// runAgentHandler backs the "Run Now" button - synchronously evaluates this
 // wallet's agent against every open listing and returns the outcome.
 func (e *Extension) runAgentHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {

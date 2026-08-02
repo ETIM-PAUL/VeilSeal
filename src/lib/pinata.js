@@ -1,5 +1,5 @@
 // Direct browser upload to Pinata. VITE_PINATA_JWT is bundled into the
-// public client JS — acceptable for this local/testnet demo, but note that
+// public client JS - acceptable for this local/testnet demo, but note that
 // anyone who inspects the built bundle can extract and reuse this token.
 const PINATA_JWT = import.meta.env.VITE_PINATA_JWT;
 const PINATA_GATEWAY = "https://gateway.pinata.cloud/ipfs";
@@ -15,7 +15,7 @@ export function ipfsGatewayUrl(cid) {
 /// Uploads a File to Pinata and returns its IPFS CID.
 export async function uploadFileToPinata(file) {
   if (!PINATA_JWT) {
-    throw new Error("VITE_PINATA_JWT is not set — add it to .env to enable file uploads.");
+    throw new Error("VITE_PINATA_JWT is not set - add it to .env to enable file uploads.");
   }
 
   const formData = new FormData();

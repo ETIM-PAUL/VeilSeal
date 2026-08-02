@@ -14,14 +14,14 @@ import {MessageHashUtils} from "@openzeppelin/contracts/utils/cryptography/Messa
 /// deadline, the TEE decrypts every sealed bid, determines the winner,
 /// and returns the result together with a domain-separated signature
 /// that this contract verifies via ECDSA.recover against a registered
-/// `teeAddress` — the same trust mechanism Flare's own extensions use.
+/// `teeAddress` - the same trust mechanism Flare's own extensions use.
 ///
 /// DEMO SCOPE: this contract does not custody bid funds. It attests to
-/// *who won and at what amount*, verifiably and on-chain — settlement
+/// *who won and at what amount*, verifiably and on-chain - settlement
 /// (payment, refunds) is left to a consuming contract/flow, exactly as
 /// the bounty describes ("the output still needs to be usable by smart
 /// contracts"). The `teeAddress` here is a keypair we control for the
-/// hackathon demo, not a governance-registered TEE machine — standing up
+/// hackathon demo, not a governance-registered TEE machine - standing up
 /// real attested hardware via Flare's ITeeMachineRegistry is out of reach
 /// without access to Flare's own infrastructure.
 contract VeilBidding {
@@ -35,7 +35,7 @@ contract VeilBidding {
 
     // Domain separator for TEE result signatures, mirroring Flare's own
     // ActionResult signing scheme exactly (WeatherInsurance.sol uses
-    // `bytes32("TEE_ACTION_RESULT")` — a direct string-to-bytes32 cast,
+    // `bytes32("TEE_ACTION_RESULT")` - a direct string-to-bytes32 cast,
     // not a keccak256 hash of the string).
     // forge-lint: disable-next-line(unsafe-typecast)
     bytes32 public constant TEE_ACTION_RESULT_PREFIX = bytes32("VEILPAY_TEE_ACTION_RESULT");
@@ -126,7 +126,7 @@ contract VeilBidding {
     }
 
     /// @notice Anyone can request a reveal once the deadline has passed.
-    /// This emits an event for the TEE watcher to pick up — mirroring how
+    /// This emits an event for the TEE watcher to pick up - mirroring how
     /// real FCC instructions are relayed to TEE machines via
     /// ITeeExtensionRegistry.sendInstructions.
     function requestReveal(uint256 listingId) external {

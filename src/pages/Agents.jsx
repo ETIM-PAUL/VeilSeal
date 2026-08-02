@@ -33,6 +33,7 @@ const ITEM_TYPE_OPTIONS = [{ value: "", label: "Any item type" }, ...ITEM_TYPES.
 
 export default function Agents() {
   const { address } = useWallet();
+  const { refresh: refreshBids } = useBids();
 
   const [agent, setAgent] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -80,7 +81,7 @@ export default function Agents() {
       teePublicKey = await fetchLiveTeePublicKey();
     }
     if (!teePublicKey) {
-      throw new Error("No TEE public key available — set VITE_EXT_PROXY_URL (real TEE) or VITE_TEE_PUBLIC_KEY (demo).");
+      throw new Error("No TEE public key available - set VITE_EXT_PROXY_URL (real TEE) or VITE_TEE_PUBLIC_KEY (demo).");
     }
     const ciphertext = await eciesEncryptForTee(teePublicKey, new TextEncoder().encode(rawKey));
     return hexlify(ciphertext);
@@ -125,7 +126,7 @@ export default function Agents() {
       });
       setAgent(rec);
     } catch (err) {
-      setError(err?.message ?? "Failed to update agent.");
+      setError(err?.info?.error?.message ?? "Failed to update agent.");
     } finally {
       setSaving(false);
     }
@@ -140,7 +141,7 @@ export default function Agents() {
       const rec = await updateAgent(signer, address, { active: !agent.active });
       setAgent(rec);
     } catch (err) {
-      setError(err?.message ?? "Failed to toggle agent.");
+      setError(err?.info?.error?.message ?? "Failed to toggle agent.");
     } finally {
       setSaving(false);
     }
@@ -172,6 +173,7 @@ export default function Agents() {
       const signer = await getBrowserSigner();
       const rec = await runAgentNow(signer, address);
       setAgent(rec);
+      refreshBids(); // pick up any bid the run just placed, so /bids shows it without a manual refresh
     } catch (err) {
       setError(err?.message ?? "Failed to run agent.");
     } finally {
@@ -193,14 +195,14 @@ export default function Agents() {
       <div>
         <Title order={2}>Auto-Bidding Agent</Title>
         <Text className="caption" mt={4}>
-          Bids automatically on invite-only listings matching your criteria — checks once a day, or on demand.
+          Bids automatically on invite-only listings matching your criteria - checks once a day, or on demand.
         </Text>
       </div>
 
       {!isContractConfigured() && <Alert color="red">VeilBidding contract isn't configured.</Alert>}
 
       <Alert icon={<LuTriangleAlert />} color="amber" title="This key can do anything your wallet can do">
-        The agent signs as the real wallet you give it — the same address must already be invited to the listings
+        The agent signs as the real wallet you give it - the same address must already be invited to the listings
         you want it to bid on. Use a wallet dedicated to bidding with a small balance, not your primary wallet.
         Browser wallets never expose their private key programmatically, so you'll need to export it manually
         (e.g. MetaMask → Account details → Show private key) and paste it below. It's ECIES-encrypted in your
@@ -241,7 +243,7 @@ export default function Agents() {
 
           <TextInput
             label="Keyword"
-            description="Only bid on listings whose title contains this — leave blank to match any title."
+            description="Only bid on listings whose title contains this - leave blank to match any title."
             placeholder="e.g. concept art"
             value={keyword}
             onChange={(e) => setKeyword(e.currentTarget.value)}
@@ -290,12 +292,15 @@ export default function Agents() {
               <Divider my="md" />
 
               <Stack gap={4} mb="md">
+                <Text size="sm" fw={600}>
+                  {agent.totalBidsPlaced ?? 0} bid{agent.totalBidsPlaced === 1 ? "" : "s"} placed total
+                </Text>
                 <Text size="xs" className="ink-dim">
                   Last run: {agent.lastRunAt ? new Date(agent.lastRunAt).toLocaleString() : "never"}
                 </Text>
                 {agent.lastOutcome && (
                   <Text size="xs" className="ink-dim">
-                    Outcome: {agent.lastOutcome}
+                    Last run result: {agent.lastOutcome}
                   </Text>
                 )}
               </Stack>

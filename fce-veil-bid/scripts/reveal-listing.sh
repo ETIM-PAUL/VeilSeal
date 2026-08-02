@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# reveal-listing.sh — Keeper: reveal one sealed-bid listing.
+# reveal-listing.sh - Keeper: reveal one sealed-bid listing.
 #
 # Run this on/after the listing's deadline. It routes every sealed bid for the
 # listing to the TEE (which decrypts each one and determines the winner), then
@@ -10,10 +10,10 @@
 #   ./scripts/reveal-listing.sh <listingId>
 #
 # Inputs (env vars, auto-loaded from .env + config/extension.env):
-#   INSTRUCTION_SENDER  — deployed VeilBidding address
-#   EXT_PROXY_URL       — extension proxy URL (auto-detected if unset)
-#   CHAIN_URL           — chain RPC URL
-#   ADDRESSES_FILE      — path to deployed-addresses.json (auto-detected if unset)
+#   INSTRUCTION_SENDER  - deployed VeilBidding address
+#   EXT_PROXY_URL       - extension proxy URL (auto-detected if unset)
+#   CHAIN_URL           - chain RPC URL
+#   ADDRESSES_FILE      - path to deployed-addresses.json (auto-detected if unset)
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"

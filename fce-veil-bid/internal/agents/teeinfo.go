@@ -11,7 +11,7 @@ import (
 )
 
 // teeInfoResponse mirrors the shape ext-proxy's GET /info already returns
-// (see src/lib/tee/proxy.js's fetchTeeInfo doc comment) — the same endpoint
+// (see src/lib/tee/proxy.js's fetchTeeInfo doc comment) - the same endpoint
 // the browser calls to ECIES-encrypt sealed bid terms client-side.
 type teeInfoResponse struct {
 	MachineData struct {
@@ -23,7 +23,7 @@ type teeInfoResponse struct {
 }
 
 // fetchTeePublicKey reads the TEE's own published ECIES public key so the
-// watcher can encrypt sealed bid terms exactly like a browser bidder would —
+// watcher can encrypt sealed bid terms exactly like a browser bidder would -
 // only the public key is needed for encryption, nothing sensitive crosses
 // this call.
 func fetchTeePublicKey(proxyURL string) (*ecies.PublicKey, error) {

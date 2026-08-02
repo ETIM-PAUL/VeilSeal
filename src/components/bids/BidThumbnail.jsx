@@ -7,7 +7,7 @@ export default function BidThumbnail({ itemType, previewUrl, ipfsHash, height = 
 
   // previewUrl is an explicit override (e.g. the creating browser's freshly
   // uploaded gateway URL); any browser can otherwise reconstruct it purely
-  // from the on-chain ipfsHash — no off-chain index required.
+  // from the on-chain ipfsHash - no off-chain index required.
   const resolvedUrl = previewUrl || ipfsGatewayUrl(ipfsHash);
   const showsImage = resolvedUrl && itemType === "image";
   const showsVideo = resolvedUrl && itemType === "video";

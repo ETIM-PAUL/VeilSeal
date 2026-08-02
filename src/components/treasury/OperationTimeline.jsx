@@ -85,7 +85,7 @@ export default function OperationTimeline({ current = 2, failed = false, steps =
                     : "var(--ink-faint)",
                 }}
               >
-                {isFailedStep ? `${step} — Failed` : step}
+                {isFailedStep ? `${step} - Failed` : step}
               </span>
             </div>
           </div>

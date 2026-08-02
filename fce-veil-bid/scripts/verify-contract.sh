@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# verify-contract.sh — Verify the deployed VeilBidding contract source on the
+# verify-contract.sh - Verify the deployed VeilBidding contract source on the
 # chain's Blockscout explorer.
 #
 # Called automatically by pre-build.sh right after deployment, and can be re-run
@@ -8,10 +8,10 @@
 #   ./scripts/verify-contract.sh <address>
 #
 # Inputs (env vars, auto-loaded from .env + config/extension.env):
-#   CHAIN            — local | coston | coston2 | songbird | flare (picks the explorer)
-#   ADDRESSES_FILE   — deployed-addresses.json (to read the FlareTeeManager constructor arg)
-#   VERIFIER_URL     — override the Blockscout API base (…/api/). Optional.
-#   VERIFIER_API_KEY — explorer API key, if the instance requires one. Optional.
+#   CHAIN            - local | coston | coston2 | songbird | flare (picks the explorer)
+#   ADDRESSES_FILE   - deployed-addresses.json (to read the FlareTeeManager constructor arg)
+#   VERIFIER_URL     - override the Blockscout API base (…/api/). Optional.
+#   VERIFIER_API_KEY - explorer API key, if the instance requires one. Optional.
 #
 # Verification is best-effort: it never deploys or changes chain state, and a
 # failure here does not fail the deploy.
@@ -67,16 +67,16 @@ resolve_verifier_url() {
 VURL="$(resolve_verifier_url)"
 
 if [[ "$CHAIN" == "local" || -z "$VURL" ]]; then
-    log "chain '$CHAIN' has no public explorer — skipping verification."
+    log "chain '$CHAIN' has no public explorer - skipping verification."
     exit 0
 fi
 
 if ! command -v forge >/dev/null 2>&1; then
-    warn "forge not found — skipping verification."
+    warn "forge not found - skipping verification."
     exit 0
 fi
 if ! command -v cast >/dev/null 2>&1; then
-    warn "cast not found — skipping verification."
+    warn "cast not found - skipping verification."
     exit 0
 fi
 
@@ -87,13 +87,13 @@ if [[ -n "$ADDRESSES_FILE" && "$ADDRESSES_FILE" != /* ]]; then
     ADDRESSES_FILE="$PROJECT_DIR/$ADDRESSES_FILE"
 fi
 if [[ -z "$ADDRESSES_FILE" || ! -f "$ADDRESSES_FILE" ]]; then
-    warn "ADDRESSES_FILE not found — cannot derive constructor args; skipping verification."
+    warn "ADDRESSES_FILE not found - cannot derive constructor args; skipping verification."
     exit 0
 fi
 
 FTM="$(jq -r '.[] | select(.name=="FlareTeeManager") | .address' "$ADDRESSES_FILE" 2>/dev/null || true)"
 if [[ -z "$FTM" || "$FTM" == "null" ]]; then
-    warn "FlareTeeManager not found in $ADDRESSES_FILE — skipping verification."
+    warn "FlareTeeManager not found in $ADDRESSES_FILE - skipping verification."
     exit 0
 fi
 
@@ -119,7 +119,7 @@ VERIFY_ARGS=(
 [[ -n "${CHAIN_URL:-}" ]] && VERIFY_ARGS+=(--rpc-url "$CHAIN_URL")
 # shellcheck disable=SC2207
 VERIFY_ARGS+=($(foundry_chain_args))
-# forge also reads CHAIN from env — hide it from forge's subprocess only
+# forge also reads CHAIN from env - hide it from forge's subprocess only
 # (a plain `unset CHAIN` would also remove it for our own reference below,
 # which trips `set -u`).
 if env -u CHAIN forge verify-contract "${VERIFY_ARGS[@]}"; then

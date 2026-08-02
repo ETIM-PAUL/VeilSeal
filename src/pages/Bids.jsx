@@ -16,7 +16,7 @@ import { useBids } from "../context/useBids";
 
 export default function Bids() {
   // Bids live in BidsContext (mounted once, above the router) so navigating
-  // away from /bids and back doesn't re-fetch or re-flash the skeleton —
+  // away from /bids and back doesn't re-fetch or re-flash the skeleton -
   // only refresh() (the Refresh button) or the connected wallet changing
   // triggers a re-fetch. See src/context/BidsContext.jsx.
   const { bids, setBids, loading: chainLoading, error: chainError, refresh } = useBids();

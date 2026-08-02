@@ -1,17 +1,17 @@
 #!/usr/bin/env bash
-# post-build.sh — Register TEE version and TEE machine on-chain.
+# post-build.sh - Register TEE version and TEE machine on-chain.
 #
 # Run this AFTER Docker Compose brings up the extension TEE + proxy + Redis.
 #
 # Inputs (env vars):
-#   EXT_PROXY_URL       — extension proxy URL (auto-detected: :6674 for Docker, :6664 for local)
-#   NORMAL_PROXY_URL    — normal/FTDC proxy URL (default: http://localhost:6662)
-#   CHAIN_URL           — chain RPC URL (default: http://127.0.0.1:8545)
-#   ADDRESSES_FILE      — path to deployed-addresses.json (auto-detected if unset)
-#   TEE_VERSION         — version string (default: v0.1.0)
-#   LOCAL_MODE          — skip attestation (default: true)
-#   WAIT_TIMEOUT        — service wait timeout in seconds (default: 120)
-#   EXTENSION_OWNER_KEY — private key override for AddTeeVersion (optional)
+#   EXT_PROXY_URL       - extension proxy URL (auto-detected: :6674 for Docker, :6664 for local)
+#   NORMAL_PROXY_URL    - normal/FTDC proxy URL (default: http://localhost:6662)
+#   CHAIN_URL           - chain RPC URL (default: http://127.0.0.1:8545)
+#   ADDRESSES_FILE      - path to deployed-addresses.json (auto-detected if unset)
+#   TEE_VERSION         - version string (default: v0.1.0)
+#   LOCAL_MODE          - skip attestation (default: true)
+#   WAIT_TIMEOUT        - service wait timeout in seconds (default: 120)
+#   EXTENSION_OWNER_KEY - private key override for AddTeeVersion (optional)
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -146,7 +146,7 @@ log "Simulated TEE: $SIMULATED_TEE"
 # --- Step 3: Register TEE on-chain ---
 # Command 'rRap': r=pre-register (skips if already on-chain), R=issue a FRESH
 # attestation challenge, a=FTDC availability check, p=promote to production.
-# The capital 'R' is required so re-runs get a fresh challenge — without it the
+# The capital 'R' is required so re-runs get a fresh challenge - without it the
 # availability check reverts with Verification.ChallengeExpired once the machine
 # is already registered. Override via REGISTER_TEE_COMMAND.
 step 3 "Register TEE machine"

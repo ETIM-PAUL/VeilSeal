@@ -1,4 +1,4 @@
-// Ported from fce-weather-insurance/frontend/lib/tee/instruction.ts — parses
+// Ported from fce-weather-insurance/frontend/lib/tee/instruction.ts - parses
 // the FCC instruction ID out of a transaction receipt so the frontend knows
 // what to poll the extension proxy for.
 import { id as topicId } from "ethers";
@@ -9,7 +9,7 @@ export const TEE_INSTRUCTIONS_SENT_TOPIC = topicId(
 );
 
 /// Parses instructionId from TeeInstructionsSent's indexed topics alone
-/// (topic[1]=extensionId, topic[2]=instructionId, topic[3]=rewardEpochId) —
+/// (topic[1]=extensionId, topic[2]=instructionId, topic[3]=rewardEpochId) -
 /// no ABI needed since all three are `indexed`.
 export function parseTeeInstructionsSentFromLog(log) {
   const { topics } = log;
@@ -33,7 +33,7 @@ export function parseInstructionIdFromReceipt(receipt) {
 
   // Fall back to our own RevealRequested(listingId, instructionId) event.
   for (const log of receipt.logs ?? []) {
-    // RevealRequested(uint256 indexed listingId, bytes32 instructionId) —
+    // RevealRequested(uint256 indexed listingId, bytes32 instructionId) -
     // instructionId is the sole non-indexed word in `data`.
     if (log.data && log.data.length === 66) {
       return log.data;

@@ -14,7 +14,7 @@ const ink = [
   "#0d0d0c",
 ];
 
-// Signal green — the single accent colour
+// Signal green - the single accent colour
 const signal = [
   "#eef7f0",
   "#d3ecd9",

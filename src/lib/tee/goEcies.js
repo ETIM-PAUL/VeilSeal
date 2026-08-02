@@ -1,6 +1,6 @@
 // Re-implements go-ethereum's crypto/ecies package (ECIES_AES128_SHA256
 // params) in the browser, since that's what the real TEE node's /decrypt
-// endpoint expects — NOT the eth-crypto npm package's ECIES variant (AES-256
+// endpoint expects - NOT the eth-crypto npm package's ECIES variant (AES-256
 // -CBC, different KDF, different wire framing). The two are incompatible:
 // a bid sealed with eth-crypto is permanently undecryptable by the real TEE.
 // Verified byte-for-byte against go-ethereum's ecies.Decrypt in a standalone
@@ -26,7 +26,7 @@ function concatBytes(...arrays) {
   return result;
 }
 
-// NIST SP 800-56 Concatenation KDF — matches go-ethereum's concatKDF.
+// NIST SP 800-56 Concatenation KDF - matches go-ethereum's concatKDF.
 function concatKDF(z, kdLen) {
   let output = new Uint8Array(0);
   let counter = 1;
@@ -41,7 +41,7 @@ function concatKDF(z, kdLen) {
 }
 
 /// ECIES-encrypts plaintextBytes under the TEE's public key (128 hex chars,
-/// x || y, no 0x prefix, no 04 byte — see formatTeePublicKey) using the exact
+/// x || y, no 0x prefix, no 04 byte - see formatTeePublicKey) using the exact
 /// scheme go-ethereum's crypto/ecies.Encrypt(..., ECIES_AES128_SHA256, ...)
 /// produces, so the real TEE's /decrypt endpoint can read it.
 export async function eciesEncryptForTee(teePublicKeyHex, plaintextBytes) {

@@ -73,13 +73,13 @@ log "Local mode:   $LOCAL_MODE"
 if [[ "$USE_LOCAL" == "false" ]]; then
     log "Starting services with Docker Compose..."
 
-    # Dockerfile apt snapshots need a real Unix time — 0 → 1970 snapshot 404s on trixie.
+    # Dockerfile apt snapshots need a real Unix time - 0 → 1970 snapshot 404s on trixie.
     if [[ -z "${SOURCE_DATE_EPOCH:-}" || "${SOURCE_DATE_EPOCH}" == "0" ]]; then
         if ts=$(git -C "$PROJECT_DIR" log -1 --format=%ct 2>/dev/null) && [[ -n "$ts" && "$ts" != "0" ]]; then
             export SOURCE_DATE_EPOCH="$ts"
         else
             export SOURCE_DATE_EPOCH="$(date +%s)"
-            log "No git history for SOURCE_DATE_EPOCH — using current time ($SOURCE_DATE_EPOCH)"
+            log "No git history for SOURCE_DATE_EPOCH - using current time ($SOURCE_DATE_EPOCH)"
         fi
     fi
     log "SOURCE_DATE_EPOCH=$SOURCE_DATE_EPOCH"
@@ -101,11 +101,11 @@ if [[ "$USE_LOCAL" == "false" ]]; then
     case "$CHAIN" in
         local) ;;
         coston)
-            log "Coston mode — attaching docker-compose.coston.yaml"
+            log "Coston mode - attaching docker-compose.coston.yaml"
             COMPOSE_FILES+=("-f" "$PROJECT_DIR/docker-compose.coston.yaml")
             ;;
         coston2)
-            log "Coston2 mode — attaching docker-compose.coston2.yaml"
+            log "Coston2 mode - attaching docker-compose.coston2.yaml"
             COMPOSE_FILES+=("-f" "$PROJECT_DIR/docker-compose.coston2.yaml")
             ;;
     esac
@@ -188,7 +188,7 @@ PROXY_PRIVATE_KEY="$PROXY_PRIVATE_KEY" "$E2E" start ext-proxy "$PID_DIR/ext-prox
 cd "$PROJECT_DIR"
 
 if [[ "${EXT_PROXY_URL:-}" != *"localhost"* && "${EXT_PROXY_URL:-}" != *"127.0.0.1"* && -n "${EXT_PROXY_URL:-}" ]]; then
-    log "NOTE: EXT_PROXY_URL=$EXT_PROXY_URL (not localhost) — health check targets localhost:6664 anyway"
+    log "NOTE: EXT_PROXY_URL=$EXT_PROXY_URL (not localhost) - health check targets localhost:6664 anyway"
 fi
 log "Waiting for extension proxy..."
 "$E2E" wait-for-url "http://localhost:6664/info" 60

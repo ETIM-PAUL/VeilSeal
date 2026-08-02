@@ -22,7 +22,7 @@ const STEP_BY_STATUS = {
   Settled: 6,
   Failed: 3,
   // Sealed bids sit in TEE, held confidentially until the deadline reveals
-  // them — the other three outcomes only exist once that reveal has run.
+  // them - the other three outcomes only exist once that reveal has run.
   Sealed: 3,
   Won: 6,
   Lost: 6,

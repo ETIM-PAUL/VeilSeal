@@ -24,7 +24,7 @@ import (
 // diagAvailabilityCheckRevert runs an eth_call against TeeVerification with the same
 // calldata as RequestAvailabilityCheckAttestation, then decodes the revert payload and
 // matches the selector against custom errors from Verification, Fdc2Hub, MachineManager,
-// and ExtensionManager. Purely diagnostic — never returns; logs whatever it can resolve.
+// and ExtensionManager. Purely diagnostic - never returns; logs whatever it can resolve.
 func diagAvailabilityCheckRevert(
 	s *support.Support,
 	opts *bind.TransactOpts,
@@ -60,7 +60,7 @@ func diagAvailabilityCheckRevert(
 
 	_, callErr := s.ChainClient.CallContract(context.Background(), msg, nil)
 	if callErr == nil {
-		logger.Warnf("diag: eth_call unexpectedly succeeded — revert may be tx-time/gas-related")
+		logger.Warnf("diag: eth_call unexpectedly succeeded - revert may be tx-time/gas-related")
 		return
 	}
 
@@ -75,7 +75,7 @@ func diagAvailabilityCheckRevert(
 	}
 	selector := revertData[:4]
 
-	// Standard solidity Error(string) — selector 0x08c379a0
+	// Standard solidity Error(string) - selector 0x08c379a0
 	if bytes.Equal(selector, []byte{0x08, 0xc3, 0x79, 0xa0}) {
 		if reason, err := abi.UnpackRevert(revertData); err == nil {
 			logger.Errorf("diag: revert reason (string): %q", reason)
@@ -114,7 +114,7 @@ func diagAvailabilityCheckRevert(
 }
 
 // diagToProductionRevert replays the toProduction call via eth_call and logs
-// the decoded revert reason. Purely diagnostic — never returns an error.
+// the decoded revert reason. Purely diagnostic - never returns an error.
 func diagToProductionRevert(
 	s *support.Support,
 	proof machinemanager.ITeeAvailabilityCheckProof,
@@ -140,7 +140,7 @@ func diagToProductionRevert(
 
 	_, callErr := s.ChainClient.CallContract(context.Background(), msg, nil)
 	if callErr == nil {
-		logger.Warnf("diag: eth_call unexpectedly succeeded — revert may be tx-time/gas-related")
+		logger.Warnf("diag: eth_call unexpectedly succeeded - revert may be tx-time/gas-related")
 		return
 	}
 

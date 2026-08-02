@@ -1,12 +1,12 @@
 // Talks to the veilbidding extension's own /agent* HTTP API directly (port
-// 7702, published to the host — see fce-veil-bid/docker-compose.yaml). Unlike
+// 7702, published to the host - see fce-veil-bid/docker-compose.yaml). Unlike
 // /info and /decrypt (routed through ext-proxy's public tunnel so any
 // bidder's browser can reach them), agent management is a local-admin
 // surface: only the person running this dev environment needs to reach it,
 // so it's published straight to localhost instead of needing a second public
 // tunnel. CORS is handled server-side (internal/extension/agent_handlers.go).
 //
-// Every request is signed by the connected wallet (EIP-191 personal-sign) —
+// Every request is signed by the connected wallet (EIP-191 personal-sign) -
 // the message binds method+path+timestamp so a captured signature can't be
 // replayed against a different route or after 5 minutes, and so an attacker
 // who merely knows a wallet's address (public on invite lists) can't toggle,
@@ -37,12 +37,12 @@ async function signedRequest(signer, method, path, body) {
 
 /// Registers (or wholesale replaces) this wallet's single v1 agent.
 /// encryptedPrivateKey must already be ECIES ciphertext (see
-/// src/lib/tee/goEcies.js) — the raw key is never sent in the clear.
+/// src/lib/tee/goEcies.js) - the raw key is never sent in the clear.
 export async function createAgent(signer, wallet, { encryptedPrivateKey, keyword, itemType, maxAmount }) {
   return signedRequest(signer, "POST", "/agent", { wallet, encryptedPrivateKey, keyword, itemType, maxAmount });
 }
 
-/// Returns null if no agent is registered for this wallet. Unauthenticated —
+/// Returns null if no agent is registered for this wallet. Unauthenticated -
 /// it's a read-only status check with no key material in the response, and
 /// gating it would mean popping a signature prompt on every page load.
 export async function getAgent(wallet) {
@@ -54,7 +54,7 @@ export async function getAgent(wallet) {
   return res.status === 204 || !text ? null : JSON.parse(text);
 }
 
-/// Partial update — only provided fields change. Used for the
+/// Partial update - only provided fields change. Used for the
 /// active/inactive toggle and editing criteria.
 export async function updateAgent(signer, wallet, patch) {
   return signedRequest(signer, "PATCH", `/agent/${wallet}`, patch);
@@ -64,7 +64,7 @@ export async function deleteAgent(signer, wallet) {
   return signedRequest(signer, "DELETE", `/agent/${wallet}`);
 }
 
-/// Backs the "Run Now" button — synchronously evaluates this wallet's agent
+/// Backs the "Run Now" button - synchronously evaluates this wallet's agent
 /// against every open listing and returns the updated status.
 export async function runAgentNow(signer, wallet) {
   return signedRequest(signer, "POST", `/agent/${wallet}/run`);

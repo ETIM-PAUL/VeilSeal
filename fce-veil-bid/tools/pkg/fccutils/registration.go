@@ -158,7 +158,7 @@ func RegisterNode(s *support.Support, teeInfo *types.SignedTeeInfoResponse, host
 		}
 	}
 
-	// All steps completed — delete state file
+	// All steps completed - delete state file
 	os.Remove(stateFilePath)
 	return nil
 }

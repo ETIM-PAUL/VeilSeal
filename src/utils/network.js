@@ -1,4 +1,4 @@
-// Flare Coston2 testnet — https://dev.flare.network/network/overview
+// Flare Coston2 testnet - https://dev.flare.network/network/overview
 export const COSTON2_CHAIN_ID_DEC = 114;
 export const COSTON2_CHAIN_ID_HEX = "0x72";
 

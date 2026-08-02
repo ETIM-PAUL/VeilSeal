@@ -55,7 +55,7 @@ func main() {
 		if strings.Contains(err.Error(), "Extension ID already set") {
 			logger.Infof("  Extension ID already set (pre-build already registered it).")
 		} else {
-			fccutils.FatalWithCause(errors.Errorf("setExtensionId failed — is the extension registered (pre-build)? %s", err))
+			fccutils.FatalWithCause(errors.Errorf("setExtensionId failed - is the extension registered (pre-build)? %s", err))
 		}
 	} else {
 		logger.Infof("  Extension ID set.")
@@ -85,7 +85,7 @@ func main() {
 		ItemType:    "file",
 		IpfsHash:    "",
 		MinBid:      big.NewInt(*amountF),
-		// Every listing is gated now — add the bidder (same wallet as the
+		// Every listing is gated now - add the bidder (same wallet as the
 		// keeper here) as a participant so the E2E test isn't also testing
 		// the scoring formula's reachability, just the reveal flow.
 		InitialParticipants: []common.Address{bidder},
@@ -164,6 +164,6 @@ func main() {
 		fccutils.FatalWithCause(errors.Errorf("FAIL: winningAmount %s != expected %d", l.WinningAmount, *amountF))
 	}
 
-	logger.Infof("  ✓ Listing #%s revealed — winner %s at %s, matching the sealed bid.", listingId, l.Winner.Hex(), l.WinningAmount)
+	logger.Infof("  ✓ Listing #%s revealed - winner %s at %s, matching the sealed bid.", listingId, l.Winner.Hex(), l.WinningAmount)
 	logger.Infof("All tests passed.")
 }

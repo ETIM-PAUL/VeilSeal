@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# generate-bindings.sh — Compile Solidity contracts and generate Go bindings.
+# generate-bindings.sh - Compile Solidity contracts and generate Go bindings.
 #
 # Prerequisites: forge (Foundry), jq
 #
@@ -46,7 +46,7 @@ jq -r '.bytecode.object' "$FORGE_OUT" | sed 's/^0x//' > "$BINDINGS_DIR/${CONTRAC
 echo "  ABI → $BINDINGS_DIR/${CONTRACT_NAME}.abi"
 echo "  BIN → $BINDINGS_DIR/${CONTRACT_NAME}.bin"
 
-# VeilBidding has no linked library —
+# VeilBidding has no linked library -
 # nothing further to extract here.
 
 echo "=== Step 3: Generate Go bindings ==="

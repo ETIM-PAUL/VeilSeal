@@ -13,7 +13,7 @@ import { eciesEncryptForTee } from "../lib/tee/goEcies";
 
 // Must match the Solidity constant: bytes32("VEILPAY_TEE_ACTION_RESULT")
 // (a direct string-to-bytes32 cast, mirroring Flare's own
-// `bytes32("TEE_ACTION_RESULT")` convention — not a keccak256 hash).
+// `bytes32("TEE_ACTION_RESULT")` convention - not a keccak256 hash).
 export const TEE_ACTION_RESULT_PREFIX = encodeBytes32String("VEILPAY_TEE_ACTION_RESULT");
 
 // On-chain amounts are integers; bid amounts in the UI are displayed with
@@ -41,10 +41,10 @@ export function computeTermsCommitment({ amount, nonce, bidder }) {
 }
 
 /// ECIES-encrypts the true bid terms so only the holder of the TEE's
-/// private key can read them — the on-chain contract only ever sees the
+/// private key can read them - the on-chain contract only ever sees the
 /// commitment hash and this opaque ciphertext. Uses go-ethereum's
 /// crypto/ecies scheme (ECIES_AES128_SHA256) via eciesEncryptForTee, NOT
-/// eth-crypto's ECIES variant — the real TEE node's /decrypt endpoint only
+/// eth-crypto's ECIES variant - the real TEE node's /decrypt endpoint only
 /// understands the former; the two are not interoperable.
 ///
 /// `amount` is emitted as a bare JSON number, not a quoted string: the real
@@ -58,7 +58,24 @@ export async function encryptBidTerms({ amount, nonce, bidder }, teePublicKey) {
   return hexlify(ciphertext);
 }
 
-/// The TEE-side counterpart — in production this only ever runs inside the
+/// ECIES-encrypts a stealth listing's human-readable details (title,
+/// description, itemType, ipfsHash, minBid) plus a nonce - the on-chain
+/// contract only ever stores this opaque ciphertext (StealthListing.
+/// encryptedDetails). Nothing about what's being auctioned is ever readable
+/// on-chain; a participant only sees it decrypted via the TEE's authenticated
+/// /stealth/{hashedId}/details endpoint (lib/tee/stealthProxy.js), never
+/// through a transaction. `minBid` is emitted as a bare JSON number for the
+/// same reason as encryptBidTerms's `amount` - it's not currently decoded by
+/// any Go code, but kept consistent in case it ever needs to be.
+export async function encryptStealthDetails({ title, description, itemType, ipfsHash, minBid, nonce }, teePublicKey) {
+  const plaintext = `{"title":${JSON.stringify(title)},"description":${JSON.stringify(description)},"itemType":${JSON.stringify(
+    itemType
+  )},"ipfsHash":${JSON.stringify(ipfsHash)},"minBid":${minBid},"nonce":${JSON.stringify(nonce)}}`;
+  const ciphertext = await eciesEncryptForTee(teePublicKey, new TextEncoder().encode(plaintext));
+  return hexlify(ciphertext);
+}
+
+/// The TEE-side counterpart - in production this only ever runs inside the
 /// attested enclave. Included here so the "simulate TEE settlement" demo
 /// flow can actually decrypt real ciphertexts produced by real bidders.
 export async function decryptBidTerms(encryptedHex, teePrivateKey) {
@@ -96,7 +113,7 @@ export async function signResult(signedHash, teePrivateKey) {
   return wallet.signMessage(getBytes(signedHash));
 }
 
-/// Client-side signature check (no contract call needed) — recovers the
+/// Client-side signature check (no contract call needed) - recovers the
 /// signer address from a signed hash + signature, for display/verification
 /// in the UI before or independent of an on-chain read.
 export function recoverSigner(signedHash, signature) {

@@ -10,7 +10,6 @@ export default function BidCard({ bid, onOpen }) {
   const revealed = isRevealed(bid);
   const winner = revealed ? resolveWinner(bid) : null;
   const iWon = winner?.mine;
-  console.log("revealed", winner)
 
   return (
     <div
@@ -60,7 +59,7 @@ export default function BidCard({ bid, onOpen }) {
         <Group gap={6} mt="sm" className="hairline-top" pt="sm">
           <LuTrophy size={13} color="var(--signal)" />
           <Text size="xs" fw={600} c="var(--signal-ink)">
-            Winning bid — {winner.amount.toLocaleString()} {bid.token}
+            Winning bid - {winner.amount.toLocaleString()} {bid.token}
           </Text>
         </Group>
       )}

@@ -54,7 +54,7 @@ export default function Operations() {
           <Title order={2}>Operations</Title>
 
           <Text className="caption" mt={4}>
-            Every confidential operation — contributions, transfers, and sealed bids — processed through Flare Confidential Compute.
+            Every confidential operation - contributions, transfers, and sealed bids - processed through Flare Confidential Compute.
           </Text>
         </div>
 
@@ -80,7 +80,7 @@ export default function Operations() {
             <EmptyState
               icon={LuActivity}
               title="No operations found"
-              description="Try adjusting your filters — confidential operations from treasuries, transfers, and bids will appear here."
+              description="Try adjusting your filters - confidential operations from treasuries, transfers, and bids will appear here."
             />
           </div>
         ) : (

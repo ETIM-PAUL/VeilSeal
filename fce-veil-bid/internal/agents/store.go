@@ -17,7 +17,7 @@ import (
 
 // Record is one wallet's agent configuration. EncryptedPrivateKey is hex
 // ECIES ciphertext produced client-side against the TEE's published public
-// key — this process only ever sees plaintext key material transiently,
+// key - this process only ever sees plaintext key material transiently,
 // inside evaluateAgent, via decryptViaNode.
 type Record struct {
 	Wallet              string `json:"wallet"`
@@ -32,7 +32,7 @@ type Record struct {
 }
 
 // MaxAmountBig parses MaxAmount as a base-10 chain-amount integer (same scale
-// as Listing.minBid — see src/utils/sealedBid.js's AMOUNT_SCALE).
+// as Listing.minBid - see src/utils/sealedBid.js's AMOUNT_SCALE).
 func (r *Record) MaxAmountBig() (*big.Int, error) {
 	v, ok := new(big.Int).SetString(r.MaxAmount, 10)
 	if !ok {
@@ -76,7 +76,7 @@ func (s *Store) saveLocked() error {
 	return os.WriteFile(s.path, b, 0o600)
 }
 
-// Upsert creates or fully replaces the agent config for a wallet — v1 allows
+// Upsert creates or fully replaces the agent config for a wallet - v1 allows
 // exactly one agent per wallet, so "create" and "update criteria" both land
 // here; the caller decides whether Active should reset to true.
 func (s *Store) Upsert(r *Record) error {
@@ -130,7 +130,7 @@ func (s *Store) RecordRun(wallet, outcome string, placedCount int) {
 	_ = s.saveLocked()
 }
 
-// All returns every stored record — used by the 24h ticker to sweep every
+// All returns every stored record - used by the 24h ticker to sweep every
 // registered agent in one pass.
 func (s *Store) All() []*Record {
 	s.mu.Lock()

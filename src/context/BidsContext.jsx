@@ -6,14 +6,14 @@ import { fetchAllListings, fetchBidders, fetchOnChainListing, isContractConfigur
 import { BidsContext } from "./bids-context";
 
 // Lives above the router (see App.jsx) so on-chain listings are fetched once
-// and kept around across route changes — visiting /bids, navigating away,
+// and kept around across route changes - visiting /bids, navigating away,
 // and coming back no longer re-fetches or re-flashes the loading skeleton.
 // Only an explicit refresh() call (the Refresh button) or the connected
 // wallet changing triggers a re-fetch.
 export function BidsProvider({ children }) {
   const { address } = useWallet();
 
-  // Bids shown here are exclusively what's discovered on-chain — no seed/mock
+  // Bids shown here are exclusively what's discovered on-chain - no seed/mock
   // listings. See the fetch effect below.
   const [bids, setBids] = useState([]);
   const [loading, setLoading] = useState(() => isContractConfigured());
@@ -21,7 +21,7 @@ export function BidsProvider({ children }) {
   const [refreshTick, setRefreshTick] = useState(0);
 
   // Discover every listing that exists on-chain (created by any account, in
-  // any browser) — this is what makes a listing created from one account
+  // any browser) - this is what makes a listing created from one account
   // visible and biddable from another.
   useEffect(() => {
     if (!isContractConfigured()) return;

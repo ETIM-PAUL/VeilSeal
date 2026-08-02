@@ -2,7 +2,7 @@
 // on-chain listings, and once a deadline passes, decrypts every sealed bid,
 // determines the winner, and submits a domain-separated signed result.
 //
-// TEE_PRIVATE_KEY only ever lives here (a Node process you run yourself) —
+// TEE_PRIVATE_KEY only ever lives here (a Node process you run yourself) -
 // it is never bundled into the frontend. In real Flare Confidential Compute
 // this logic runs inside attested hardware instead of a plain Node script;
 // this is a hackathon-scoped simulation of that trust boundary, not a claim
@@ -46,7 +46,7 @@ async function settleListing(contract, chainId, listingId) {
     const reqTx = await contract.requestReveal(listingId);
     await reqTx.wait();
   } catch {
-    // Someone else may have already requested it — not an error for us.
+    // Someone else may have already requested it - not an error for us.
   }
 
   const bidders = await contract.getBidders(listingId);
@@ -68,13 +68,13 @@ async function settleListing(contract, chainId, listingId) {
     try {
       decrypted = await decryptBidTerms(sealed.encryptedTerms, TEE_PRIVATE_KEY);
     } catch (err) {
-      log(`  ${bidder}: FAILED to decrypt — ${err.message}`);
+      log(`  ${bidder}: FAILED to decrypt - ${err.message}`);
       continue;
     }
 
     const recomputed = computeTermsCommitment(decrypted);
     if (recomputed !== sealed.termsCommitment) {
-      log(`  ${bidder}: commitment mismatch — rejecting this bid.`);
+      log(`  ${bidder}: commitment mismatch - rejecting this bid.`);
       continue;
     }
 

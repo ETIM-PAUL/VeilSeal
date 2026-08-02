@@ -20,7 +20,7 @@ import (
 // The node derives its governanceHash from the SAME (signers, threshold) pair
 // (fed by GOVERNANCE_SIGNERS / GOVERNANCE_THRESHOLD). MachineManager.register
 // only accepts a TEE machine whose signed governanceHash matches the one
-// registered here — so this MUST be kept consistent with the node's env. Both
+// registered here - so this MUST be kept consistent with the node's env. Both
 // post-build.sh and docker-compose.yaml read the same vars to guarantee that.
 //
 // Idempotent: if the latest on-chain governance hash already equals the desired

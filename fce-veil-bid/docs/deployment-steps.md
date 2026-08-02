@@ -1,4 +1,4 @@
-# 🚀 TEE Extension Deployment — Step by Step
+# 🚀 TEE Extension Deployment - Step by Step
 
 Linear recipe to deploy a TEE extension to Flare Coston or Coston2. Run the steps top to bottom.
 
@@ -46,7 +46,7 @@ CHAIN=coston2                                                         # or costo
 CHAIN_URL=https://coston2-api.flare.network/ext/C/rpc                 # chain RPC
 ADDRESSES_FILE=./config/coston2/deployed-addresses.json
 NORMAL_PROXY_URL=https://tee-proxy-coston2-1.flare.rocks              # FTDC proxy
-EXT_PROXY_URL=                                                        # leave empty — set in Step 6
+EXT_PROXY_URL=                                                        # leave empty - set in Step 6
 
 LOCAL_MODE=false
 SIMULATED_TEE=false
@@ -70,7 +70,7 @@ bash ./scripts/pre-build.sh
 
 Compiles Solidity, deploys `InstructionSender`, registers the extension on-chain. Writes `EXTENSION_ID` and `INSTRUCTION_SENDER` to `config/extension.env`.
 
-Read the new values — `EXTENSION_ID` is part of the hand-off in Step 6:
+Read the new values - `EXTENSION_ID` is part of the hand-off in Step 6:
 
 ```bash
 cat config/extension.env
@@ -132,11 +132,11 @@ Required values:
 | Field          | Expected                                                          |
 | -------------- | ----------------------------------------------------------------- |
 | `platform`     | starts with `0x4743505f414d445f534556…` (GCP_AMD_SEV)             |
-| `codeHash`     | real measured hash (**not** `0x194844cf…` — that's simulated)     |
+| `codeHash`     | real measured hash (**not** `0x194844cf…` - that's simulated)     |
 | `extensionId`  | matches your `config/extension.env` `EXTENSION_ID`                |
 | `initialOwner` | matches your `INITIAL_OWNER`                                      |
 
-If `extensionId` is wrong, ask the VM operator to restart the container with the correct `EXTENSION_ID` env override (no image rebuild needed — it's a launch-policy override).
+If `extensionId` is wrong, ask the VM operator to restart the container with the correct `EXTENSION_ID` env override (no image rebuild needed - it's a launch-policy override).
 
 ## 8. Register the TEE machine
 
@@ -155,7 +155,7 @@ If `extensionId` is wrong, ask the VM operator to restart the container with the
 >     || die "Register TEE failed"
 > ```
 >
-> Step `a` (availability check) needs a one-time **challenge** — a random number from the contract that the TEE signs to prove it's alive. By default only `r` issues it, but `r` skips itself once the TEE is registered on-chain. So re-runs (image changes, diamond cuts, retries) revert with `Verification.ChallengeExpired`. Capital `R` issues the challenge directly — decoupled from `r` — so re-runs work.
+> Step `a` (availability check) needs a one-time **challenge** - a random number from the contract that the TEE signs to prove it's alive. By default only `r` issues it, but `r` skips itself once the TEE is registered on-chain. So re-runs (image changes, diamond cuts, retries) revert with `Verification.ChallengeExpired`. Capital `R` issues the challenge directly - decoupled from `r` - so re-runs work.
 
 Run:
 
@@ -187,8 +187,8 @@ Sends test instructions through the deployed TEE and verifies the round-trip.
 
 All extension registrations on that chain are wiped:
 
-1. `bash ./scripts/pre-build.sh` — mints a fresh `EXTENSION_ID`.
-2. Send the new `EXTENSION_ID` to the VM operator. They restart the container with `EXTENSION_ID=<new value>` as a launch-policy env override — no image rebuild needed.
+1. `bash ./scripts/pre-build.sh` - mints a fresh `EXTENSION_ID`.
+2. Send the new `EXTENSION_ID` to the VM operator. They restart the container with `EXTENSION_ID=<new value>` as a launch-policy env override - no image rebuild needed.
 3. Re-curl `/info` and confirm `extensionId` matches.
 4. `bash ./scripts/post-build.sh`.
 5. `bash ./scripts/test.sh`.

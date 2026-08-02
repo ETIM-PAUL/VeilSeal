@@ -18,7 +18,7 @@ import (
 var errReverted = errors.New("submitSealedBid transaction reverted")
 
 // Minimal ABI subset the watcher needs beyond what internal/extension/chain.go
-// already reads — same "don't pull in the tools module's generated bindings"
+// already reads - same "don't pull in the tools module's generated bindings"
 // constraint applies here (see chain.go's comment). Field order in "listings"
 // must match the Listing struct in contracts/InstructionSender.sol exactly.
 const watcherABIJSON = `[
@@ -91,7 +91,7 @@ type Listing struct {
 	InviteOnly    bool
 }
 
-// emptyAttestation mirrors the Solidity EligibilityAttestation tuple —
+// emptyAttestation mirrors the Solidity EligibilityAttestation tuple -
 // invite-only listings (the only kind v1 agents bid on) never check it, so
 // the agent always sends it zeroed, same as a human bidder would for a
 // non-score-gated listing.
@@ -160,7 +160,7 @@ func alreadyBid(ctx context.Context, client *ethclient.Client, addr common.Addre
 	return vals[2].(bool), nil
 }
 
-// submitSealedBidAs signs and sends submitSealedBid using key directly — the
+// submitSealedBidAs signs and sends submitSealedBid using key directly - the
 // agent bids AS the wallet that key belongs to, so on-chain eligibility
 // (isParticipant) and every downstream check see that wallet as the bidder,
 // exactly as if it had submitted the bid manually via a browser wallet.

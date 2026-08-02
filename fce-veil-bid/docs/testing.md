@@ -2,7 +2,7 @@
 
 > **Note:** Code samples in this doc reference the original scaffold's `SAY_HELLO` /
 > `SAY_GOODBYE` operations. The veilbidding extension exposes a single
-> `BID` / `REVEAL` operation — see `pkg/types/register.go` and
+> `BID` / `REVEAL` operation - see `pkg/types/register.go` and
 > `tools/cmd/run-test/main.go` for the actual surface used here.
 
 This project has three layers of tests:
@@ -17,12 +17,12 @@ This project has three layers of tests:
 
 Unit tests require no external services. They cover:
 
-- **Revert reason decoding** (`tools/pkg/fccutils/revert_test.go`) — Verifies `decodeRevertHex` and `DecodeRevertReason` correctly decode ABI-encoded `Error(string)` reverts, including all 7 revert messages from `InstructionSender.sol`. Also tests edge cases: nil errors, wrapped errors, custom error selectors, invalid hex, short data.
-- **Support revert decoding** (`tools/pkg/support/support_test.go`) — Tests `decodeRevertFromError` which extracts revert reasons from go-ethereum JSON-RPC error types.
-- **State file I/O** (`tools/pkg/fccutils/registration_test.go`) — Tests `loadState`/`saveState` for the TEE machine registration resume flow: missing files, valid/invalid JSON, overwrite behavior, roundtrip consistency, read-only directories.
-- **Validation checks** (`tools/pkg/validate/checks_test.go`) — Extension env format validation, deployer key source detection, service/registration/TEE check functions with various config states.
-- **Report formatting** (`tools/pkg/validate/report_test.go`) — Report summary, JSON output, colored terminal output, empty reports, unknown statuses.
-- **Validation primitives** (`tools/pkg/validate/validate_test.go`) — `AddressNotZero`, `AddressHasCode`, `KeyHasFunds`, `IsUsingDevKey` with nil clients, zero addresses, edge cases.
+- **Revert reason decoding** (`tools/pkg/fccutils/revert_test.go`) - Verifies `decodeRevertHex` and `DecodeRevertReason` correctly decode ABI-encoded `Error(string)` reverts, including all 7 revert messages from `InstructionSender.sol`. Also tests edge cases: nil errors, wrapped errors, custom error selectors, invalid hex, short data.
+- **Support revert decoding** (`tools/pkg/support/support_test.go`) - Tests `decodeRevertFromError` which extracts revert reasons from go-ethereum JSON-RPC error types.
+- **State file I/O** (`tools/pkg/fccutils/registration_test.go`) - Tests `loadState`/`saveState` for the TEE machine registration resume flow: missing files, valid/invalid JSON, overwrite behavior, roundtrip consistency, read-only directories.
+- **Validation checks** (`tools/pkg/validate/checks_test.go`) - Extension env format validation, deployer key source detection, service/registration/TEE check functions with various config states.
+- **Report formatting** (`tools/pkg/validate/report_test.go`) - Report summary, JSON output, colored terminal output, empty reports, unknown statuses.
+- **Validation primitives** (`tools/pkg/validate/validate_test.go`) - `AddressNotZero`, `AddressHasCode`, `KeyHasFunds`, `IsUsingDevKey` with nil clients, zero addresses, edge cases.
 
 ```bash
 cd tools && go test ./... -v
@@ -34,11 +34,11 @@ Integration tests run against a live Ethereum node (Hardhat, Anvil, or Coston2).
 
 **What they test:**
 
-- **Constructor validation** — Deploys `InstructionSender` with zero addresses, EOA addresses, and valid addresses. Verifies revert messages are decoded correctly (not binary garbage).
-- **setExtensionId errors** — Calls `setExtensionId` before registration ("Extension ID not found.") and after it's already set ("Extension ID already set."). Verifies the full revert decoding chain works: `DecodeRevertReason` → `SimulateAndDecodeRevert` fallback.
-- **CheckTx revert reasons** — Submits transactions that revert on-chain (with manual gas limit to bypass estimation), then verifies `CheckTx` replays the call and returns human-readable revert reasons.
-- **Idempotent registration** — Runs `SetupExtension` twice with the same instruction sender address. Verifies the second run detects the existing registration and returns the same extension ID without submitting duplicate transactions.
-- **Pre-flight validation** — Tests `AddressHasCode` against deployed registry contracts and random EOAs. Tests `KeyHasFunds` against the funded deployer and unfunded random keys.
+- **Constructor validation** - Deploys `InstructionSender` with zero addresses, EOA addresses, and valid addresses. Verifies revert messages are decoded correctly (not binary garbage).
+- **setExtensionId errors** - Calls `setExtensionId` before registration ("Extension ID not found.") and after it's already set ("Extension ID already set."). Verifies the full revert decoding chain works: `DecodeRevertReason` → `SimulateAndDecodeRevert` fallback.
+- **CheckTx revert reasons** - Submits transactions that revert on-chain (with manual gas limit to bypass estimation), then verifies `CheckTx` replays the call and returns human-readable revert reasons.
+- **Idempotent registration** - Runs `SetupExtension` twice with the same instruction sender address. Verifies the second run detects the existing registration and returns the same extension ID without submitting duplicate transactions.
+- **Pre-flight validation** - Tests `AddressHasCode` against deployed registry contracts and random EOAs. Tests `KeyHasFunds` against the funded deployer and unfunded random keys.
 
 **Running against a local node:**
 
@@ -110,7 +110,7 @@ Steps 1, 3, and 4 are the same for every extension. Steps 2 and 5 are what you c
 
 ## How the scaffold test works
 
-The scaffold's test sends instructions via `SendSayHello` and `SendSayGoodbye` and verifies the responses. Here's how each part works — when you build your own extension, you'll replace these with your own types, payloads, and assertions.
+The scaffold's test sends instructions via `SendSayHello` and `SendSayGoodbye` and verifies the responses. Here's how each part works - when you build your own extension, you'll replace these with your own types, payloads, and assertions.
 
 ### 1. Define your message and response types
 
@@ -169,7 +169,7 @@ The `verifyHelloResult` and `verifyGoodbyeResult` functions each receive the raw
 
 - `status`: `0` = failed, `1` = success, `2` = pending
 - `log`: error message when `status == 0`
-- `data`: your extension's response bytes — this is whatever your `processAction` handler returned via `buildResult`
+- `data`: your extension's response bytes - this is whatever your `processAction` handler returned via `buildResult`
 
 The generic status checks are already in `verifyHelloResult` and `verifyGoodbyeResult`. The scaffold validates the SAY_HELLO response like this:
 

@@ -5,6 +5,7 @@ import {
   LuWallet,
   LuArrowLeftRight,
   LuGavel,
+  LuLockKeyhole,
   LuActivity,
   LuShieldCheck,
   LuBot,
@@ -12,7 +13,9 @@ import {
 
 import { NavLink } from "react-router-dom";
 
-const links = [
+import { useWallet } from "../../context/useWallet";
+
+const baseLinks = [
   { name: "Dashboard", path: "/", icon: LuLayoutDashboard },
   { name: "Treasuries", path: "/treasuries", icon: LuWallet },
   { name: "P2P Transfers", path: "/p2p-transfers", icon: LuArrowLeftRight },
@@ -21,7 +24,19 @@ const links = [
   { name: "Operations", path: "/operations", icon: LuActivity },
 ];
 
+// Stealth Listings is only reachable by hashed ID anyway (nothing here is
+// browsable without one), so the nav entry itself only shows once a wallet
+// is connected - no point advertising it to a visitor who can't do anything
+// with it yet.
+const STEALTH_LINK = { name: "Stealth Listings", path: "/stealth-listings", icon: LuLockKeyhole };
+
 export default function Sidebar() {
+  const { isConnected } = useWallet();
+  const closedBidsIndex = baseLinks.findIndex((l) => l.path === "/bids");
+  const links = isConnected
+    ? [...baseLinks.slice(0, closedBidsIndex + 1), STEALTH_LINK, ...baseLinks.slice(closedBidsIndex + 1)]
+    : baseLinks;
+
   return (
     <Stack gap={0} h="100%">
       <Group

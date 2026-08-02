@@ -31,7 +31,7 @@ import { fetchLiveTeePublicKey } from "../../lib/tee/ecies";
 import { isProxyConfigured } from "../../lib/tee/proxy";
 import { requestEligibilityAttestation } from "../../lib/tee/eligibility";
 
-// Static fallback for the self-contained (non-real-registry) contract path —
+// Static fallback for the self-contained (non-real-registry) contract path -
 // the real, registered TEE's public key is fetched live from the extension
 // proxy instead, since it's only known once that TEE machine starts up.
 const STATIC_TEE_PUBLIC_KEY = import.meta.env.VITE_TEE_PUBLIC_KEY;
@@ -70,7 +70,7 @@ export default function PlaceBidDrawer({ opened, onClose, bid, onSubmit }) {
     const wallet = address ?? MY_WALLET;
 
     if (!onChain) {
-      // Listing predates on-chain wiring (or contract not deployed) — keep
+      // Listing predates on-chain wiring (or contract not deployed) - keep
       // the original local-only mock flow for backward compatibility.
       onSubmit({ amount, token, wallet });
       next();
@@ -87,11 +87,20 @@ export default function PlaceBidDrawer({ opened, onClose, bid, onSubmit }) {
         teePublicKey = await fetchLiveTeePublicKey();
       }
       if (!teePublicKey) {
-        throw new Error("No TEE public key available — set VITE_EXT_PROXY_URL (real TEE) or VITE_TEE_PUBLIC_KEY (demo).");
+        throw new Error("No TEE public key available - set VITE_EXT_PROXY_URL (real TEE) or VITE_TEE_PUBLIC_KEY (demo).");
       }
 
       const signer = await getBrowserSigner();
       const contract = getVeilBiddingContract(signer);
+
+      // Sealed and committed here (not after the eligibility check) since a
+      // score-gated bidder's attestation request needs to carry this exact
+      // ciphertext/commitment - the TEE checks the amount by decrypting the
+      // same thing that's about to be submitted.
+      const chainAmount = toChainAmount(amount);
+      const nonce = randomNonce();
+      const termsCommitment = computeTermsCommitment({ amount: chainAmount, nonce, bidder: wallet });
+      const encryptedTerms = await encryptBidTerms({ amount: chainAmount, nonce, bidder: wallet }, teePublicKey);
 
       let attestation = EMPTY_ATTESTATION;
       const minScore = activeBid.minScore ?? 0n;
@@ -100,32 +109,27 @@ export default function PlaceBidDrawer({ opened, onClose, bid, onSubmit }) {
         const isInvited = await fetchIsParticipant(activeBid.onChainListingId, wallet);
         if (!isInvited) {
           if (activeBid.inviteOnly) {
-            // No score check applies at all for invite-only listings — don't
+            // No score check applies at all for invite-only listings - don't
             // waste a tx/fee on a doomed check, fail fast with a clear reason.
             throw new Error("This listing is invite-only and your wallet hasn't been added by the creator.");
           }
 
-          const { attestation: att, eligible } = await requestEligibilityAttestation(
+          // Checks both score and bid amount in one round-trip; throws with a
+          // specific reason (score or amount) if either fails - see
+          // requestEligibilityAttestation.
+          const { attestation: att } = await requestEligibilityAttestation(
             contract,
             activeBid.onChainListingId,
+            termsCommitment,
+            encryptedTerms,
             INSTRUCTION_FEE_WEI,
             setSubmitStepLabel
           );
-          if (!eligible) {
-            throw new Error(
-              `Your wallet's signal score doesn't meet this listing's eligibility bar (min score ${minScore}).`
-            );
-          }
           attestation = att;
         }
       }
 
       setSubmitStepLabel("Sealing and submitting your bid…");
-      const chainAmount = toChainAmount(amount);
-      const nonce = randomNonce();
-      const termsCommitment = computeTermsCommitment({ amount: chainAmount, nonce, bidder: wallet });
-      const encryptedTerms = await encryptBidTerms({ amount: chainAmount, nonce, bidder: wallet }, teePublicKey);
-
       const tx = await contract.submitSealedBid(activeBid.onChainListingId, termsCommitment, encryptedTerms, attestation);
       await tx.wait();
 
@@ -147,15 +151,15 @@ export default function PlaceBidDrawer({ opened, onClose, bid, onSubmit }) {
         <Stepper.Step label="Amount">
           <Stack mt="xl">
             <Alert icon={<LuLock />} color="slate">
-              Your bid amount is sealed and encrypted until the deadline —
+              Your bid amount is sealed and encrypted until the deadline -
               other bidders cannot see it.
             </Alert>
 
             {(activeBid.inviteOnly || activeBid.minScore > 0n) && (
               <Alert icon={<LuShieldCheck />} color="amber">
                 {activeBid.inviteOnly
-                  ? "This listing is invite-only — only wallets the creator has added can bid."
-                  : `This listing requires a minimum wallet signal score of ${activeBid.minScore.toString()}, privately checked by the TEE before your bid is accepted — your actual score is never revealed onchain.`}
+                  ? "This listing is invite-only - only wallets the creator has added can bid."
+                  : `This listing requires a minimum wallet signal score of ${activeBid.minScore.toString()}, privately checked by the TEE before your bid is accepted - your actual score is never revealed onchain.`}
               </Alert>
             )}
 

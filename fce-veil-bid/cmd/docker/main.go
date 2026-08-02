@@ -28,7 +28,7 @@ func main() {
 	// Start tee-node in extension mode.
 	go teeServer.StartServerExtension(configPort, signPort, extensionPort)
 
-	// Start extension server — fail fast if port binding fails.
+	// Start extension server - fail fast if port binding fails.
 	extErrCh := extserver.StartExtension(extensionPort, signPort)
 
 	// Give server a moment to bind, then check for early failures.

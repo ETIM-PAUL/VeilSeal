@@ -4,7 +4,7 @@
 # Go
 vendor/
 
-# Environment files (contain secrets) — keep example templates
+# Environment files (contain secrets) - keep example templates
 .env
 .env.*
 !.env.example

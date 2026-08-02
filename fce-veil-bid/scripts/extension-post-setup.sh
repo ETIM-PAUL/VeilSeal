@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# extension-post-setup.sh — Extension-specific setup that runs AFTER post-build.
+# extension-post-setup.sh - Extension-specific setup that runs AFTER post-build.
 #
 # This hook runs once the TEE node is live and registered on-chain in
 # TeeMachineRegistry. Use it for setup that needs the TEE's on-chain identity
-# to already exist — things that couldn't be done in extension-setup.sh because
+# to already exist - things that couldn't be done in extension-setup.sh because
 # the TEE hadn't been registered yet.
 #
 # Typical uses:
@@ -15,11 +15,11 @@
 #
 # The following variables are available (sourced from .env + config/extension.env):
 #
-#   INSTRUCTION_SENDER     — your deployed InstructionSender contract address
-#   EXTENSION_ID           — your extension's ID on the TeeExtensionRegistry
-#   CHAIN_URL              — chain RPC endpoint
-#   ADDRESSES_FILE         — path to deployed-addresses.json
-#   DEPLOYMENT_PRIVATE_KEY — funded deployer/admin key
+#   INSTRUCTION_SENDER     - your deployed InstructionSender contract address
+#   EXTENSION_ID           - your extension's ID on the TeeExtensionRegistry
+#   CHAIN_URL              - chain RPC endpoint
+#   ADDRESSES_FILE         - path to deployed-addresses.json
+#   DEPLOYMENT_PRIVATE_KEY - funded deployer/admin key
 #
 # Example: read the TEE address and register it with your contract
 #
@@ -33,7 +33,7 @@
 # Why this matters:
 #   Some on-chain verification requires the TEE's signing address to be known
 #   to the contract. Since that address is only derivable after the TEE
-#   registers itself, the wiring has to happen here — not in extension-setup.sh.
+#   registers itself, the wiring has to happen here - not in extension-setup.sh.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -59,10 +59,10 @@ log "CHAIN_URL:          ${CHAIN_URL:-<not set>}"
 # --- Register the active TEE signing address on the contract ---
 # submitRevealResult() verifies the TEE's signature via ecrecover, so
 # the contract needs to know the TEE's address. It's only derivable after the TEE
-# registers itself on TeeMachineRegistry — hence this runs post-build.
+# registers itself on TeeMachineRegistry - hence this runs post-build.
 
-: "${INSTRUCTION_SENDER:?INSTRUCTION_SENDER not set — run pre-build.sh first}"
-: "${EXTENSION_ID:?EXTENSION_ID not set — run pre-build.sh first}"
+: "${INSTRUCTION_SENDER:?INSTRUCTION_SENDER not set - run pre-build.sh first}"
+: "${EXTENSION_ID:?EXTENSION_ID not set - run pre-build.sh first}"
 : "${ADDRESSES_FILE:?ADDRESSES_FILE not set}"
 : "${CHAIN_URL:?CHAIN_URL not set}"
 : "${DEPLOYMENT_PRIVATE_KEY:?DEPLOYMENT_PRIVATE_KEY not set}"
@@ -85,7 +85,7 @@ tee_out=$(cast_env cast call --rpc-url "$CHAIN_URL" "$TEE_MACHINE_REGISTRY" \
 tee_addr=$(echo "$tee_out" | grep -oE '0x[0-9a-fA-F]{40}' | head -1)
 
 if [[ -z "$tee_addr" || "$tee_addr" == "0x0000000000000000000000000000000000000000" ]]; then
-    echo "ERROR: no active TEE machine found for extension $EXTENSION_ID — is the TEE registered (post-build)?" >&2
+    echo "ERROR: no active TEE machine found for extension $EXTENSION_ID - is the TEE registered (post-build)?" >&2
     exit 1
 fi
 

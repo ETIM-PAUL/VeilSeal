@@ -1,12 +1,12 @@
 // Orchestrates the real reveal flow against a VeilBidding contract that's
 // actually registered with Flare's live FlareTeeManager (see
-// fce-weather-insurance's InstructionSender pattern) — as opposed to
+// fce-weather-insurance's InstructionSender pattern) - as opposed to
 // src/utils/sealedBid.js + scripts/simulate-tee-settle.cjs, which drive our
 // self-contained (no real registry) contract. Ported from
 // fce-weather-insurance/frontend/lib/tee/private-buy.ts's
 // requestAndRelayPrivateBuy, adapted for reveal instead of buy.
 //
-// Not wired into the UI yet — this targets the real-registry contract ABI
+// Not wired into the UI yet - this targets the real-registry contract ABI
 // (contracts/InstructionSender.sol in the fce-weather-insurance fork), which
 // is a different submitRevealResult signature than our currently-deployed
 // self-contained VeilBidding. Swap src/contracts/VeilBidding.js's ABI over
@@ -16,7 +16,7 @@ import { parseInstructionIdFromReceipt } from "./instruction";
 
 /// @param contract ethers Contract instance (VeilBidding, real-registry ABI)
 /// @param listingId bigint
-/// @param instructionFee bigint — wei value to forward to sendInstructions
+/// @param instructionFee bigint - wei value to forward to sendInstructions
 /// @param onStep optional (label: string) => void progress callback
 export async function requestAndRelayReveal(contract, listingId, instructionFee, onStep) {
   onStep?.("Requesting reveal on-chain…");
@@ -38,6 +38,39 @@ export async function requestAndRelayReveal(contract, listingId, instructionFee,
 
   onStep?.("Relaying the TEE-signed result on-chain…");
   const relayTx = await contract.submitRevealResult(data, actionId, submissionTag, status, signature);
+  const relayReceipt = await relayTx.wait();
+
+  return { instructionId, actionResponse, requestReceipt: receipt, relayReceipt };
+}
+
+/// Stealth-listing counterpart to requestAndRelayReveal - identical flow,
+/// keyed by hashedId instead of listingId. The winner's address and winning
+/// amount become public exactly like a regular reveal; the listing's
+/// encrypted details are never touched by this and stay hidden forever.
+/// @param contract ethers Contract instance (VeilBidding)
+/// @param hashedId bytes32 hex string
+/// @param instructionFee bigint - wei value to forward to sendInstructions
+/// @param onStep optional (label: string) => void progress callback
+export async function requestAndRelayStealthReveal(contract, hashedId, instructionFee, onStep) {
+  onStep?.("Requesting reveal on-chain…");
+  const tx = await contract.requestStealthReveal(hashedId, { value: instructionFee });
+  const receipt = await tx.wait();
+
+  const instructionId = parseInstructionIdFromReceipt(receipt);
+  if (!instructionId) {
+    throw new Error("Could not parse instruction ID from requestStealthReveal receipt");
+  }
+
+  onStep?.("Waiting for the TEE to decrypt sealed bids and pick a winner…");
+  const actionResponse = await pollActionResult(instructionId);
+  if (actionResponse.result.status !== 1) {
+    throw new Error(actionResponse.result.log ?? "TEE reported failure");
+  }
+
+  const { data, actionId, submissionTag, status, signature } = actionResultFields(actionResponse);
+
+  onStep?.("Relaying the TEE-signed result on-chain…");
+  const relayTx = await contract.submitStealthRevealResult(data, actionId, submissionTag, status, signature);
   const relayReceipt = await relayTx.wait();
 
   return { instructionId, actionResponse, requestReceipt: receipt, relayReceipt };

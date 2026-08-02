@@ -2,18 +2,18 @@ import { Contract, BrowserProvider, JsonRpcProvider } from "ethers";
 
 import { COSTON2_PARAMS } from "../utils/network";
 
-// ABI extracted from the real deployed contract — fce-veil-bid/out/InstructionSender.sol/VeilBidding.json.
+// ABI extracted from the real deployed contract - fce-veil-bid/out/InstructionSender.sol/VeilBidding.json.
 // Keep in sync if the contract changes and is redeployed.
-export const VEIL_BIDDING_ABI = [{"type":"constructor","inputs":[{"name":"_teeExtensionRegistry","type":"address","internalType":"contract ITeeExtensionRegistry"},{"name":"_teeMachineRegistry","type":"address","internalType":"contract ITeeMachineRegistry"}],"stateMutability":"nonpayable"},{"type":"function","name":"CANCEL_FEE","inputs":[],"outputs":[{"name":"","type":"uint256","internalType":"uint256"}],"stateMutability":"view"},{"type":"function","name":"MAX_SCORE","inputs":[],"outputs":[{"name":"","type":"uint256","internalType":"uint256"}],"stateMutability":"view"},{"type":"function","name":"MIN_SCORE_THRESHOLD","inputs":[],"outputs":[{"name":"","type":"uint256","internalType":"uint256"}],"stateMutability":"view"},{"type":"function","name":"OP_COMMAND_MY_SCORE","inputs":[],"outputs":[{"name":"","type":"bytes32","internalType":"bytes32"}],"stateMutability":"view"},{"type":"function","name":"OP_COMMAND_REVEAL","inputs":[],"outputs":[{"name":"","type":"bytes32","internalType":"bytes32"}],"stateMutability":"view"},{"type":"function","name":"OP_COMMAND_SCORE","inputs":[],"outputs":[{"name":"","type":"bytes32","internalType":"bytes32"}],"stateMutability":"view"},{"type":"function","name":"OP_TYPE_BID","inputs":[],"outputs":[{"name":"","type":"bytes32","internalType":"bytes32"}],"stateMutability":"view"},{"type":"function","name":"TEE_EXTENSION_REGISTRY","inputs":[],"outputs":[{"name":"","type":"address","internalType":"contract ITeeExtensionRegistry"}],"stateMutability":"view"},{"type":"function","name":"TEE_MACHINE_REGISTRY","inputs":[],"outputs":[{"name":"","type":"address","internalType":"contract ITeeMachineRegistry"}],"stateMutability":"view"},{"type":"function","name":"addParticipants","inputs":[{"name":"_listingId","type":"uint256","internalType":"uint256"},{"name":"_participants","type":"address[]","internalType":"address[]"}],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"bidders","inputs":[{"name":"","type":"uint256","internalType":"uint256"},{"name":"","type":"uint256","internalType":"uint256"}],"outputs":[{"name":"","type":"address","internalType":"address"}],"stateMutability":"view"},{"type":"function","name":"cancelSealedBid","inputs":[{"name":"_listingId","type":"uint256","internalType":"uint256"}],"outputs":[],"stateMutability":"payable"},{"type":"function","name":"createListing","inputs":[{"name":"_title","type":"string","internalType":"string"},{"name":"_description","type":"string","internalType":"string"},{"name":"_itemType","type":"string","internalType":"string"},{"name":"_ipfsHash","type":"string","internalType":"string"},{"name":"_minBid","type":"uint256","internalType":"uint256"},{"name":"_minScore","type":"uint256","internalType":"uint256"},{"name":"_inviteOnly","type":"bool","internalType":"bool"},{"name":"_deadline","type":"uint64","internalType":"uint64"},{"name":"_initialParticipants","type":"address[]","internalType":"address[]"}],"outputs":[{"name":"listingId","type":"uint256","internalType":"uint256"}],"stateMutability":"nonpayable"},{"type":"function","name":"getBidders","inputs":[{"name":"_listingId","type":"uint256","internalType":"uint256"}],"outputs":[{"name":"","type":"address[]","internalType":"address[]"}],"stateMutability":"view"},{"type":"function","name":"isParticipant","inputs":[{"name":"","type":"uint256","internalType":"uint256"},{"name":"","type":"address","internalType":"address"}],"outputs":[{"name":"","type":"bool","internalType":"bool"}],"stateMutability":"view"},{"type":"function","name":"listingCount","inputs":[],"outputs":[{"name":"","type":"uint256","internalType":"uint256"}],"stateMutability":"view"},{"type":"function","name":"listingMinScore","inputs":[{"name":"_listingId","type":"uint256","internalType":"uint256"}],"outputs":[{"name":"","type":"uint256","internalType":"uint256"}],"stateMutability":"view"},{"type":"function","name":"listings","inputs":[{"name":"","type":"uint256","internalType":"uint256"}],"outputs":[{"name":"creator","type":"address","internalType":"address"},{"name":"deadline","type":"uint64","internalType":"uint64"},{"name":"revealed","type":"bool","internalType":"bool"},{"name":"winner","type":"address","internalType":"address"},{"name":"winningAmount","type":"uint256","internalType":"uint256"},{"name":"title","type":"string","internalType":"string"},{"name":"description","type":"string","internalType":"string"},{"name":"itemType","type":"string","internalType":"string"},{"name":"ipfsHash","type":"string","internalType":"string"},{"name":"minBid","type":"uint256","internalType":"uint256"},{"name":"minScore","type":"uint256","internalType":"uint256"},{"name":"inviteOnly","type":"bool","internalType":"bool"}],"stateMutability":"view"},{"type":"function","name":"owner","inputs":[],"outputs":[{"name":"","type":"address","internalType":"address"}],"stateMutability":"view"},{"type":"function","name":"requestMyScore","inputs":[],"outputs":[{"name":"instructionId","type":"bytes32","internalType":"bytes32"}],"stateMutability":"payable"},{"type":"function","name":"requestReveal","inputs":[{"name":"_listingId","type":"uint256","internalType":"uint256"}],"outputs":[{"name":"instructionId","type":"bytes32","internalType":"bytes32"}],"stateMutability":"payable"},{"type":"function","name":"requestScoreCheck","inputs":[{"name":"_listingId","type":"uint256","internalType":"uint256"}],"outputs":[{"name":"instructionId","type":"bytes32","internalType":"bytes32"}],"stateMutability":"payable"},{"type":"function","name":"sealedBids","inputs":[{"name":"","type":"uint256","internalType":"uint256"},{"name":"","type":"address","internalType":"address"}],"outputs":[{"name":"termsCommitment","type":"bytes32","internalType":"bytes32"},{"name":"encryptedTerms","type":"bytes","internalType":"bytes"},{"name":"submitted","type":"bool","internalType":"bool"}],"stateMutability":"view"},{"type":"function","name":"setExtensionId","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"setTeeAddress","inputs":[{"name":"_teeAddress","type":"address","internalType":"address"}],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"submitRevealResult","inputs":[{"name":"_resultData","type":"bytes","internalType":"bytes"},{"name":"_actionId","type":"bytes32","internalType":"bytes32"},{"name":"_submissionTag","type":"string","internalType":"string"},{"name":"_status","type":"uint8","internalType":"uint8"},{"name":"_signature","type":"bytes","internalType":"bytes"}],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"submitSealedBid","inputs":[{"name":"_listingId","type":"uint256","internalType":"uint256"},{"name":"_termsCommitment","type":"bytes32","internalType":"bytes32"},{"name":"_encryptedTerms","type":"bytes","internalType":"bytes"},{"name":"_attestation","type":"tuple","internalType":"struct VeilBidding.EligibilityAttestation","components":[{"name":"data","type":"bytes","internalType":"bytes"},{"name":"actionId","type":"bytes32","internalType":"bytes32"},{"name":"submissionTag","type":"string","internalType":"string"},{"name":"status","type":"uint8","internalType":"uint8"},{"name":"signature","type":"bytes","internalType":"bytes"}]}],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"teeAddress","inputs":[],"outputs":[{"name":"","type":"address","internalType":"address"}],"stateMutability":"view"},{"type":"function","name":"totalBidsPlaced","inputs":[{"name":"","type":"address","internalType":"address"}],"outputs":[{"name":"","type":"uint256","internalType":"uint256"}],"stateMutability":"view"},{"type":"function","name":"withdrawFees","inputs":[{"name":"_to","type":"address","internalType":"address payable"}],"outputs":[],"stateMutability":"nonpayable"},{"type":"event","name":"BidCancelled","inputs":[{"name":"listingId","type":"uint256","indexed":true,"internalType":"uint256"},{"name":"bidder","type":"address","indexed":true,"internalType":"address"},{"name":"fee","type":"uint256","indexed":false,"internalType":"uint256"}],"anonymous":false},{"type":"event","name":"BidRevealed","inputs":[{"name":"listingId","type":"uint256","indexed":true,"internalType":"uint256"},{"name":"winner","type":"address","indexed":true,"internalType":"address"},{"name":"winningAmount","type":"uint256","indexed":false,"internalType":"uint256"}],"anonymous":false},{"type":"event","name":"BidSealed","inputs":[{"name":"listingId","type":"uint256","indexed":true,"internalType":"uint256"},{"name":"bidder","type":"address","indexed":true,"internalType":"address"},{"name":"termsCommitment","type":"bytes32","indexed":false,"internalType":"bytes32"}],"anonymous":false},{"type":"event","name":"ListingCreated","inputs":[{"name":"listingId","type":"uint256","indexed":true,"internalType":"uint256"},{"name":"creator","type":"address","indexed":true,"internalType":"address"},{"name":"deadline","type":"uint64","indexed":false,"internalType":"uint64"},{"name":"title","type":"string","indexed":false,"internalType":"string"},{"name":"description","type":"string","indexed":false,"internalType":"string"},{"name":"itemType","type":"string","indexed":false,"internalType":"string"},{"name":"ipfsHash","type":"string","indexed":false,"internalType":"string"},{"name":"minBid","type":"uint256","indexed":false,"internalType":"uint256"},{"name":"minScore","type":"uint256","indexed":false,"internalType":"uint256"},{"name":"inviteOnly","type":"bool","indexed":false,"internalType":"bool"}],"anonymous":false},{"type":"event","name":"MyScoreRequested","inputs":[{"name":"wallet","type":"address","indexed":true,"internalType":"address"},{"name":"instructionId","type":"bytes32","indexed":false,"internalType":"bytes32"}],"anonymous":false},{"type":"event","name":"ParticipantsAdded","inputs":[{"name":"listingId","type":"uint256","indexed":true,"internalType":"uint256"},{"name":"participants","type":"address[]","indexed":false,"internalType":"address[]"}],"anonymous":false},{"type":"event","name":"RevealRequested","inputs":[{"name":"listingId","type":"uint256","indexed":true,"internalType":"uint256"},{"name":"instructionId","type":"bytes32","indexed":false,"internalType":"bytes32"}],"anonymous":false},{"type":"event","name":"ScoreCheckRequested","inputs":[{"name":"listingId","type":"uint256","indexed":true,"internalType":"uint256"},{"name":"bidder","type":"address","indexed":true,"internalType":"address"},{"name":"instructionId","type":"bytes32","indexed":false,"internalType":"bytes32"}],"anonymous":false},{"type":"event","name":"TeeAddressSet","inputs":[{"name":"teeAddress","type":"address","indexed":true,"internalType":"address"}],"anonymous":false}];
+export const VEIL_BIDDING_ABI = [{"type":"constructor","inputs":[{"name":"_teeExtensionRegistry","type":"address","internalType":"contract ITeeExtensionRegistry"},{"name":"_teeMachineRegistry","type":"address","internalType":"contract ITeeMachineRegistry"}],"stateMutability":"nonpayable"},{"type":"function","name":"CANCEL_FEE","inputs":[],"outputs":[{"name":"","type":"uint256","internalType":"uint256"}],"stateMutability":"view"},{"type":"function","name":"MAX_SCORE","inputs":[],"outputs":[{"name":"","type":"uint256","internalType":"uint256"}],"stateMutability":"view"},{"type":"function","name":"MIN_SCORE_THRESHOLD","inputs":[],"outputs":[{"name":"","type":"uint256","internalType":"uint256"}],"stateMutability":"view"},{"type":"function","name":"OP_COMMAND_MY_SCORE","inputs":[],"outputs":[{"name":"","type":"bytes32","internalType":"bytes32"}],"stateMutability":"view"},{"type":"function","name":"OP_COMMAND_REVEAL","inputs":[],"outputs":[{"name":"","type":"bytes32","internalType":"bytes32"}],"stateMutability":"view"},{"type":"function","name":"OP_COMMAND_SCORE","inputs":[],"outputs":[{"name":"","type":"bytes32","internalType":"bytes32"}],"stateMutability":"view"},{"type":"function","name":"OP_COMMAND_STEALTH_REVEAL","inputs":[],"outputs":[{"name":"","type":"bytes32","internalType":"bytes32"}],"stateMutability":"view"},{"type":"function","name":"OP_TYPE_BID","inputs":[],"outputs":[{"name":"","type":"bytes32","internalType":"bytes32"}],"stateMutability":"view"},{"type":"function","name":"TEE_EXTENSION_REGISTRY","inputs":[],"outputs":[{"name":"","type":"address","internalType":"contract ITeeExtensionRegistry"}],"stateMutability":"view"},{"type":"function","name":"TEE_MACHINE_REGISTRY","inputs":[],"outputs":[{"name":"","type":"address","internalType":"contract ITeeMachineRegistry"}],"stateMutability":"view"},{"type":"function","name":"addParticipants","inputs":[{"name":"_listingId","type":"uint256","internalType":"uint256"},{"name":"_participants","type":"address[]","internalType":"address[]"}],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"addStealthParticipants","inputs":[{"name":"_hashedId","type":"bytes32","internalType":"bytes32"},{"name":"_participants","type":"address[]","internalType":"address[]"}],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"bidders","inputs":[{"name":"","type":"uint256","internalType":"uint256"},{"name":"","type":"uint256","internalType":"uint256"}],"outputs":[{"name":"","type":"address","internalType":"address"}],"stateMutability":"view"},{"type":"function","name":"cancelSealedBid","inputs":[{"name":"_listingId","type":"uint256","internalType":"uint256"}],"outputs":[],"stateMutability":"payable"},{"type":"function","name":"createListing","inputs":[{"name":"_title","type":"string","internalType":"string"},{"name":"_description","type":"string","internalType":"string"},{"name":"_itemType","type":"string","internalType":"string"},{"name":"_ipfsHash","type":"string","internalType":"string"},{"name":"_minBid","type":"uint256","internalType":"uint256"},{"name":"_minScore","type":"uint256","internalType":"uint256"},{"name":"_inviteOnly","type":"bool","internalType":"bool"},{"name":"_deadline","type":"uint64","internalType":"uint64"},{"name":"_initialParticipants","type":"address[]","internalType":"address[]"}],"outputs":[{"name":"listingId","type":"uint256","internalType":"uint256"}],"stateMutability":"nonpayable"},{"type":"function","name":"createStealthListing","inputs":[{"name":"_encryptedDetails","type":"bytes","internalType":"bytes"},{"name":"_deadline","type":"uint64","internalType":"uint64"},{"name":"_initialParticipants","type":"address[]","internalType":"address[]"}],"outputs":[{"name":"hashedId","type":"bytes32","internalType":"bytes32"}],"stateMutability":"nonpayable"},{"type":"function","name":"creatorStealthNonce","inputs":[{"name":"","type":"address","internalType":"address"}],"outputs":[{"name":"","type":"uint256","internalType":"uint256"}],"stateMutability":"view"},{"type":"function","name":"getBidders","inputs":[{"name":"_listingId","type":"uint256","internalType":"uint256"}],"outputs":[{"name":"","type":"address[]","internalType":"address[]"}],"stateMutability":"view"},{"type":"function","name":"getStealthBidders","inputs":[{"name":"_hashedId","type":"bytes32","internalType":"bytes32"}],"outputs":[{"name":"","type":"address[]","internalType":"address[]"}],"stateMutability":"view"},{"type":"function","name":"isParticipant","inputs":[{"name":"","type":"uint256","internalType":"uint256"},{"name":"","type":"address","internalType":"address"}],"outputs":[{"name":"","type":"bool","internalType":"bool"}],"stateMutability":"view"},{"type":"function","name":"isStealthParticipant","inputs":[{"name":"","type":"bytes32","internalType":"bytes32"},{"name":"","type":"address","internalType":"address"}],"outputs":[{"name":"","type":"bool","internalType":"bool"}],"stateMutability":"view"},{"type":"function","name":"listingCount","inputs":[],"outputs":[{"name":"","type":"uint256","internalType":"uint256"}],"stateMutability":"view"},{"type":"function","name":"listingMinBid","inputs":[{"name":"_listingId","type":"uint256","internalType":"uint256"}],"outputs":[{"name":"","type":"uint256","internalType":"uint256"}],"stateMutability":"view"},{"type":"function","name":"listingMinScore","inputs":[{"name":"_listingId","type":"uint256","internalType":"uint256"}],"outputs":[{"name":"","type":"uint256","internalType":"uint256"}],"stateMutability":"view"},{"type":"function","name":"listings","inputs":[{"name":"","type":"uint256","internalType":"uint256"}],"outputs":[{"name":"creator","type":"address","internalType":"address"},{"name":"deadline","type":"uint64","internalType":"uint64"},{"name":"revealed","type":"bool","internalType":"bool"},{"name":"winner","type":"address","internalType":"address"},{"name":"winningAmount","type":"uint256","internalType":"uint256"},{"name":"title","type":"string","internalType":"string"},{"name":"description","type":"string","internalType":"string"},{"name":"itemType","type":"string","internalType":"string"},{"name":"ipfsHash","type":"string","internalType":"string"},{"name":"minBid","type":"uint256","internalType":"uint256"},{"name":"minScore","type":"uint256","internalType":"uint256"},{"name":"inviteOnly","type":"bool","internalType":"bool"}],"stateMutability":"view"},{"type":"function","name":"owner","inputs":[],"outputs":[{"name":"","type":"address","internalType":"address"}],"stateMutability":"view"},{"type":"function","name":"requestMyScore","inputs":[],"outputs":[{"name":"instructionId","type":"bytes32","internalType":"bytes32"}],"stateMutability":"payable"},{"type":"function","name":"requestReveal","inputs":[{"name":"_listingId","type":"uint256","internalType":"uint256"}],"outputs":[{"name":"instructionId","type":"bytes32","internalType":"bytes32"}],"stateMutability":"payable"},{"type":"function","name":"requestScoreCheck","inputs":[{"name":"_listingId","type":"uint256","internalType":"uint256"},{"name":"_termsCommitment","type":"bytes32","internalType":"bytes32"},{"name":"_encryptedTerms","type":"bytes","internalType":"bytes"}],"outputs":[{"name":"instructionId","type":"bytes32","internalType":"bytes32"}],"stateMutability":"payable"},{"type":"function","name":"requestStealthReveal","inputs":[{"name":"_hashedId","type":"bytes32","internalType":"bytes32"}],"outputs":[{"name":"instructionId","type":"bytes32","internalType":"bytes32"}],"stateMutability":"payable"},{"type":"function","name":"sealedBids","inputs":[{"name":"","type":"uint256","internalType":"uint256"},{"name":"","type":"address","internalType":"address"}],"outputs":[{"name":"termsCommitment","type":"bytes32","internalType":"bytes32"},{"name":"encryptedTerms","type":"bytes","internalType":"bytes"},{"name":"submitted","type":"bool","internalType":"bool"}],"stateMutability":"view"},{"type":"function","name":"setExtensionId","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"setTeeAddress","inputs":[{"name":"_teeAddress","type":"address","internalType":"address"}],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"stealthBidders","inputs":[{"name":"","type":"bytes32","internalType":"bytes32"},{"name":"","type":"uint256","internalType":"uint256"}],"outputs":[{"name":"","type":"address","internalType":"address"}],"stateMutability":"view"},{"type":"function","name":"stealthListings","inputs":[{"name":"","type":"bytes32","internalType":"bytes32"}],"outputs":[{"name":"creator","type":"address","internalType":"address"},{"name":"deadline","type":"uint64","internalType":"uint64"},{"name":"revealed","type":"bool","internalType":"bool"},{"name":"winner","type":"address","internalType":"address"},{"name":"winningAmount","type":"uint256","internalType":"uint256"},{"name":"encryptedDetails","type":"bytes","internalType":"bytes"}],"stateMutability":"view"},{"type":"function","name":"stealthSealedBids","inputs":[{"name":"","type":"bytes32","internalType":"bytes32"},{"name":"","type":"address","internalType":"address"}],"outputs":[{"name":"termsCommitment","type":"bytes32","internalType":"bytes32"},{"name":"encryptedTerms","type":"bytes","internalType":"bytes"},{"name":"submitted","type":"bool","internalType":"bool"}],"stateMutability":"view"},{"type":"function","name":"submitRevealResult","inputs":[{"name":"_resultData","type":"bytes","internalType":"bytes"},{"name":"_actionId","type":"bytes32","internalType":"bytes32"},{"name":"_submissionTag","type":"string","internalType":"string"},{"name":"_status","type":"uint8","internalType":"uint8"},{"name":"_signature","type":"bytes","internalType":"bytes"}],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"submitSealedBid","inputs":[{"name":"_listingId","type":"uint256","internalType":"uint256"},{"name":"_termsCommitment","type":"bytes32","internalType":"bytes32"},{"name":"_encryptedTerms","type":"bytes","internalType":"bytes"},{"name":"_attestation","type":"tuple","internalType":"struct VeilBidding.EligibilityAttestation","components":[{"name":"data","type":"bytes","internalType":"bytes"},{"name":"actionId","type":"bytes32","internalType":"bytes32"},{"name":"submissionTag","type":"string","internalType":"string"},{"name":"status","type":"uint8","internalType":"uint8"},{"name":"signature","type":"bytes","internalType":"bytes"}]}],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"submitStealthRevealResult","inputs":[{"name":"_resultData","type":"bytes","internalType":"bytes"},{"name":"_actionId","type":"bytes32","internalType":"bytes32"},{"name":"_submissionTag","type":"string","internalType":"string"},{"name":"_status","type":"uint8","internalType":"uint8"},{"name":"_signature","type":"bytes","internalType":"bytes"}],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"submitStealthSealedBid","inputs":[{"name":"_hashedId","type":"bytes32","internalType":"bytes32"},{"name":"_termsCommitment","type":"bytes32","internalType":"bytes32"},{"name":"_encryptedTerms","type":"bytes","internalType":"bytes"}],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"teeAddress","inputs":[],"outputs":[{"name":"","type":"address","internalType":"address"}],"stateMutability":"view"},{"type":"function","name":"totalBidsPlaced","inputs":[{"name":"","type":"address","internalType":"address"}],"outputs":[{"name":"","type":"uint256","internalType":"uint256"}],"stateMutability":"view"},{"type":"function","name":"withdrawFees","inputs":[{"name":"_to","type":"address","internalType":"address payable"}],"outputs":[],"stateMutability":"nonpayable"},{"type":"event","name":"BidCancelled","inputs":[{"name":"listingId","type":"uint256","indexed":true,"internalType":"uint256"},{"name":"bidder","type":"address","indexed":true,"internalType":"address"},{"name":"fee","type":"uint256","indexed":false,"internalType":"uint256"}],"anonymous":false},{"type":"event","name":"BidRevealed","inputs":[{"name":"listingId","type":"uint256","indexed":true,"internalType":"uint256"},{"name":"winner","type":"address","indexed":true,"internalType":"address"},{"name":"winningAmount","type":"uint256","indexed":false,"internalType":"uint256"}],"anonymous":false},{"type":"event","name":"BidSealed","inputs":[{"name":"listingId","type":"uint256","indexed":true,"internalType":"uint256"},{"name":"bidder","type":"address","indexed":true,"internalType":"address"},{"name":"termsCommitment","type":"bytes32","indexed":false,"internalType":"bytes32"}],"anonymous":false},{"type":"event","name":"ListingCreated","inputs":[{"name":"listingId","type":"uint256","indexed":true,"internalType":"uint256"},{"name":"creator","type":"address","indexed":true,"internalType":"address"},{"name":"deadline","type":"uint64","indexed":false,"internalType":"uint64"},{"name":"title","type":"string","indexed":false,"internalType":"string"},{"name":"description","type":"string","indexed":false,"internalType":"string"},{"name":"itemType","type":"string","indexed":false,"internalType":"string"},{"name":"ipfsHash","type":"string","indexed":false,"internalType":"string"},{"name":"minBid","type":"uint256","indexed":false,"internalType":"uint256"},{"name":"minScore","type":"uint256","indexed":false,"internalType":"uint256"},{"name":"inviteOnly","type":"bool","indexed":false,"internalType":"bool"}],"anonymous":false},{"type":"event","name":"MyScoreRequested","inputs":[{"name":"wallet","type":"address","indexed":true,"internalType":"address"},{"name":"instructionId","type":"bytes32","indexed":false,"internalType":"bytes32"}],"anonymous":false},{"type":"event","name":"ParticipantsAdded","inputs":[{"name":"listingId","type":"uint256","indexed":true,"internalType":"uint256"},{"name":"participants","type":"address[]","indexed":false,"internalType":"address[]"}],"anonymous":false},{"type":"event","name":"RevealRequested","inputs":[{"name":"listingId","type":"uint256","indexed":true,"internalType":"uint256"},{"name":"instructionId","type":"bytes32","indexed":false,"internalType":"bytes32"}],"anonymous":false},{"type":"event","name":"ScoreCheckRequested","inputs":[{"name":"listingId","type":"uint256","indexed":true,"internalType":"uint256"},{"name":"bidder","type":"address","indexed":true,"internalType":"address"},{"name":"instructionId","type":"bytes32","indexed":false,"internalType":"bytes32"}],"anonymous":false},{"type":"event","name":"StealthBidRevealed","inputs":[{"name":"hashedId","type":"bytes32","indexed":true,"internalType":"bytes32"},{"name":"winner","type":"address","indexed":true,"internalType":"address"},{"name":"winningAmount","type":"uint256","indexed":false,"internalType":"uint256"}],"anonymous":false},{"type":"event","name":"StealthBidSealed","inputs":[{"name":"hashedId","type":"bytes32","indexed":true,"internalType":"bytes32"},{"name":"bidder","type":"address","indexed":true,"internalType":"address"},{"name":"termsCommitment","type":"bytes32","indexed":false,"internalType":"bytes32"}],"anonymous":false},{"type":"event","name":"StealthListingCreated","inputs":[{"name":"hashedId","type":"bytes32","indexed":true,"internalType":"bytes32"},{"name":"creator","type":"address","indexed":true,"internalType":"address"},{"name":"deadline","type":"uint64","indexed":false,"internalType":"uint64"}],"anonymous":false},{"type":"event","name":"StealthParticipantsAdded","inputs":[{"name":"hashedId","type":"bytes32","indexed":true,"internalType":"bytes32"},{"name":"participants","type":"address[]","indexed":false,"internalType":"address[]"}],"anonymous":false},{"type":"event","name":"StealthRevealRequested","inputs":[{"name":"hashedId","type":"bytes32","indexed":true,"internalType":"bytes32"},{"name":"instructionId","type":"bytes32","indexed":false,"internalType":"bytes32"}],"anonymous":false},{"type":"event","name":"TeeAddressSet","inputs":[{"name":"teeAddress","type":"address","indexed":true,"internalType":"address"}],"anonymous":false}];
 
 // Real VeilBidding deployment on Coston2, registered against the live
 // FlareTeeManager. Override via .env if redeployed. Listing metadata
 // (title/description/type/ipfsHash/minBid/minScore/inviteOnly) is stored
-// on-chain — no off-chain index or localStorage cache required to render a listing.
+// on-chain - no off-chain index or localStorage cache required to render a listing.
 const DEFAULT_ADDRESS = "0xdF5C10261e99617912E7bB4aeEFab35a0Ecdd963";
 export const VEIL_BIDDING_ADDRESS = import.meta.env.VITE_VEILBIDDING_ADDRESS || DEFAULT_ADDRESS;
 
-// Block the contract was deployed at — scopes event queries so we don't scan
+// Block the contract was deployed at - scopes event queries so we don't scan
 // from genesis on every page load.
 export const DEPLOY_BLOCK = Number(import.meta.env.VITE_VEILBIDDING_DEPLOY_BLOCK || 33512033);
 
@@ -21,11 +21,11 @@ export const DEPLOY_BLOCK = Number(import.meta.env.VITE_VEILBIDDING_DEPLOY_BLOCK
 export const MIN_SCORE_THRESHOLD = 5;
 export const MAX_SCORE = 100;
 
-// Mirrors the contract's CANCEL_FEE constant (0.1 native token) — charged to
+// Mirrors the contract's CANCEL_FEE constant (0.1 native token) - charged to
 // cancel a still-open sealed bid before a listing's deadline.
 export const CANCEL_FEE_WEI = 100_000_000_000_000_000n; // 0.1 ether in wei
 
-// Empty attestation — passed to submitSealedBid when a listing isn't
+// Empty attestation - passed to submitSealedBid when a listing isn't
 // score-gated, or the caller is an invited participant (bypasses the gate
 // entirely). The contract never inspects it in either case.
 export const EMPTY_ATTESTATION = {
@@ -36,7 +36,7 @@ export const EMPTY_ATTESTATION = {
   signature: "0x",
 };
 
-// Wei value forwarded to sendInstructions when requesting a reveal — mirrors
+// Wei value forwarded to sendInstructions when requesting a reveal - mirrors
 // the Go tooling's DefaultFee (tools/pkg/utils/instructions.go).
 export const INSTRUCTION_FEE_WEI = 1_000_000_000_000n;
 
@@ -46,7 +46,7 @@ export function isContractConfigured() {
 
 export function getVeilBiddingContract(signerOrProvider) {
   if (!VEIL_BIDDING_ADDRESS) {
-    throw new Error("VITE_VEILBIDDING_ADDRESS is not set — deploy the contract and add it to .env first.");
+    throw new Error("VITE_VEILBIDDING_ADDRESS is not set - deploy the contract and add it to .env first.");
   }
   return new Contract(VEIL_BIDDING_ADDRESS, VEIL_BIDDING_ABI, signerOrProvider);
 }
@@ -59,7 +59,7 @@ export async function getBrowserSigner() {
 
 let readOnlyProvider;
 
-/// A plain RPC connection for reading public contract state — works even
+/// A plain RPC connection for reading public contract state - works even
 /// without a connected wallet, so anyone (including judges) can verify
 /// on-chain proof without installing anything.
 export function getReadOnlyProvider() {
@@ -75,10 +75,10 @@ export function getReadOnlyContract() {
 
 // Coston2's public RPC caps eth_getLogs at 30 blocks per call. Scanning
 // forward from a now-hours-old DEPLOY_BLOCK to "latest" means hundreds of
-// sequential chunk requests — enough to get rate-limited/dropped by the
+// sequential chunk requests - enough to get rate-limited/dropped by the
 // public RPC outright. A reveal we're looking up just happened (that's the
 // whole reason the caller wants its tx hash), so search backward from the
-// current block instead and stop at the first match — the common case
+// current block instead and stop at the first match - the common case
 // resolves in one or two requests. Bounded so a very old/never-found event
 // still gives up instead of scanning forever.
 const BACKWARD_SEARCH_MAX_CHUNKS = 40; // ~1000 blocks of history
@@ -129,7 +129,7 @@ export async function fetchOnChainListing(listingId) {
   return result;
 }
 
-// Coston2's public RPC caps eth_getLogs at 30 blocks per call — querying any
+// Coston2's public RPC caps eth_getLogs at 30 blocks per call - querying any
 // meaningful range means paging through in small chunks.
 const LOG_CHUNK_SIZE = 25;
 // Scoped by contract address + schema version so a redeploy (new address, or
@@ -159,7 +159,7 @@ function saveListingsCache(cache) {
   localStorage.setItem(LISTINGS_CACHE_KEY, JSON.stringify(cache));
 }
 
-/// Discovers every listing ever created on-chain via ListingCreated events —
+/// Discovers every listing ever created on-chain via ListingCreated events -
 /// the source of truth for "which listings exist", since a listing created
 /// from one browser/account must still be visible (and biddable) from any
 /// other. The event carries the full item metadata (title/description/
@@ -234,7 +234,7 @@ export async function fetchSealedBid(listingId, bidder) {
   };
 }
 
-/// Whether a wallet is on a listing's creator-invited allowlist — bypasses
+/// Whether a wallet is on a listing's creator-invited allowlist - bypasses
 /// the minScore gate entirely for that address.
 export async function fetchIsParticipant(listingId, wallet) {
   const contract = getReadOnlyContract();
@@ -250,9 +250,73 @@ export async function addParticipants(contract, listingId, participants) {
 
 /// Cancels a still-open sealed bid before the listing's deadline, for a flat
 /// CANCEL_FEE. Works for a bid placed directly or by an auto-bidding agent
-/// signing as the same wallet — both are recorded under the real bidder's
+/// signing as the same wallet - both are recorded under the real bidder's
 /// address either way.
 export async function cancelSealedBid(contract, listingId) {
   const tx = await contract.cancelSealedBid(listingId, { value: CANCEL_FEE_WEI });
   return tx.wait();
+}
+
+// --- Stealth listings ---
+//
+// A stealth listing's title/description/itemType/ipfsHash/minBid never sit in
+// plaintext on-chain - they're ECIES-encrypted (see utils/sealedBid.js's
+// encryptStealthDetails) into a single opaque blob only the TEE can decrypt.
+// Fetching this state gives you the listing's existence/lifecycle
+// (deadline/revealed/winner/winningAmount) but never its content - for that,
+// see lib/tee/stealthProxy.js's fetchStealthDetails, an authenticated
+// off-chain request straight to the TEE that never touches a transaction.
+
+/// Fetches a stealth listing's on-chain (non-content) state: creator,
+/// deadline, revealed/winner/winningAmount. deadline === 0n means "no such
+/// listing". encryptedDetails is included as raw ciphertext - opaque without
+/// the TEE, fetchStealthDetails is what actually decrypts it.
+export async function fetchStealthListingOnChain(hashedId) {
+  const contract = getReadOnlyContract();
+  const listing = await contract.stealthListings(hashedId);
+  return {
+    creator: listing.creator,
+    deadline: listing.deadline,
+    revealed: listing.revealed,
+    winner: listing.winner,
+    winningAmount: listing.winningAmount,
+    encryptedDetails: listing.encryptedDetails,
+  };
+}
+
+/// Every bidder address that sealed a bid on a stealth listing.
+export async function fetchStealthBidders(hashedId) {
+  const contract = getReadOnlyContract();
+  return contract.getStealthBidders(hashedId);
+}
+
+/// Whether a wallet is on a stealth listing's creator-invited allowlist - the
+/// sole admission control for both bidding and viewing its decrypted details.
+export async function fetchIsStealthParticipant(hashedId, wallet) {
+  const contract = getReadOnlyContract();
+  return contract.isStealthParticipant(hashedId, wallet);
+}
+
+/// Invites additional wallets to a stealth listing. Creator-only, only while
+/// bidding is still open.
+export async function addStealthParticipants(contract, hashedId, participants) {
+  const tx = await contract.addStealthParticipants(hashedId, participants);
+  return tx.wait();
+}
+
+/// Parses the hashedId a createStealthListing transaction produced from its
+/// receipt logs - mined-tx return values aren't otherwise retrievable, so
+/// this is the only reliable way to learn it (mirrors how NewBidDrawer parses
+/// ListingCreated's listingId for regular listings).
+export function parseStealthListingCreatedEvent(receipt, contract) {
+  const parsed = receipt.logs
+    .map((log) => {
+      try {
+        return contract.interface.parseLog(log);
+      } catch {
+        return null;
+      }
+    })
+    .find((p) => p?.name === "StealthListingCreated");
+  return parsed?.args?.hashedId ?? null;
 }

@@ -4,7 +4,7 @@
 #   docker compose -f docker-compose.yaml -f docker-compose.coston2.yaml up -d
 #
 # NOTE: ext-proxy's config.toml is mounted via the tee_proxy_config named
-# volume declared in the base docker-compose.yaml — populate it with the
+# volume declared in the base docker-compose.yaml - populate it with the
 # Coston2 config before starting:
 #   docker run --rm -i -v tee_proxy_config:/data alpine sh -c "cat > /data/config.toml" \
 #     < config/proxy/extension_proxy.coston2.docker.toml

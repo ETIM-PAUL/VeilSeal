@@ -3,7 +3,7 @@ const hre = require("hardhat");
 async function main() {
   const teeAddress = process.env.TEE_ADDRESS;
   if (!teeAddress) {
-    throw new Error("Set TEE_ADDRESS in .env — the simulated TEE signer's public address.");
+    throw new Error("Set TEE_ADDRESS in .env - the simulated TEE signer's public address.");
   }
 
   const VeilBidding = await hre.ethers.getContractFactory("VeilBidding");

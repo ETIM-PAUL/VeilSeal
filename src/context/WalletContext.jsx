@@ -69,7 +69,7 @@ export function WalletProvider({ children }) {
   const disconnect = useCallback(async () => {
     if (provider?.request) {
       try {
-        // EIP-2255 permission revocation — supported by some wallets, silently
+        // EIP-2255 permission revocation - supported by some wallets, silently
         // ignored by those that don't implement it.
         await provider.request({
           method: "wallet_revokePermissions",

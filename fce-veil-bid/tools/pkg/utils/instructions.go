@@ -25,7 +25,7 @@ import (
 // Override via FEE_WEI env var.
 var DefaultFee = big.NewInt(1_000_000_000_000)
 
-// MinScoreThreshold mirrors VeilBidding.sol's MIN_SCORE_THRESHOLD — the
+// MinScoreThreshold mirrors VeilBidding.sol's MIN_SCORE_THRESHOLD - the
 // lowest minScore createListing accepts for a score-gated (non-invite-only) listing.
 const MinScoreThreshold = 5
 
@@ -37,7 +37,7 @@ func init() {
 	}
 }
 
-// DeployInstructionSender deploys VeilBidding directly — unlike a design with a linked library
+// DeployInstructionSender deploys VeilBidding directly - unlike a design with a linked library
 // it has no linked library, so this is a plain contract deployment.
 func DeployInstructionSender(s *support.Support) (common.Address, *veilbidding.VeilBidding, error) {
 	opts, err := bind.NewKeyedTransactorWithChainID(s.Prv, s.ChainID)
@@ -148,7 +148,7 @@ func SetTeeAddress(s *support.Support, contractAddr, teeAddr common.Address) err
 }
 
 // ListingMetadata is the off-chain-authored, on-chain-stored description of
-// a sealed-bid item. Every listing is gated one way or the other — there's
+// a sealed-bid item. Every listing is gated one way or the other - there's
 // no "open to everyone" mode: either InviteOnly (only InitialParticipants may
 // ever bid, MinScore is ignored) or score-gated (MinScore must be 5-100,
 // TEE-verified per bidder; InitialParticipants still bypass it).
@@ -205,7 +205,7 @@ func CreateListing(s *support.Support, contractAddr common.Address, meta Listing
 }
 
 // EncryptSealedTerms ABI-independent JSON-encodes SealedTerms and ECIES-encrypts
-// them under the TEE public key from the extension proxy /info endpoint —
+// them under the TEE public key from the extension proxy /info endpoint -
 // matching what the frontend does client-side with eth-crypto.
 func EncryptSealedTerms(proxyURL string, terms types.SealedTerms) ([]byte, error) {
 	plaintext, err := json.Marshal(terms)
@@ -221,13 +221,13 @@ func EncryptSealedTerms(proxyURL string, terms types.SealedTerms) ([]byte, error
 }
 
 // EmptyAttestation is passed when a listing has no minScore gate (or the
-// caller is an invited participant) — submitSealedBid never inspects it in
+// caller is an invited participant) - submitSealedBid never inspects it in
 // that case.
 var EmptyAttestation = veilbidding.VeilBiddingEligibilityAttestation{}
 
 // SubmitSealedBid submits an on-chain commitment plus ECIES ciphertext for one
 // bidder. attestation should be EmptyAttestation unless the listing has a
-// minScore gate the caller isn't exempt from — see RequestAndGetScoreAttestation.
+// minScore gate the caller isn't exempt from - see RequestAndGetScoreAttestation.
 func SubmitSealedBid(s *support.Support, contractAddr common.Address, listingId *big.Int, termsCommitment common.Hash, encryptedTerms []byte, attestation veilbidding.VeilBiddingEligibilityAttestation) (common.Hash, error) {
 	c, err := veilbidding.NewVeilBidding(contractAddr, s.ChainClient)
 	if err != nil {
@@ -253,9 +253,13 @@ func SubmitSealedBid(s *support.Support, contractAddr common.Address, listingId 
 }
 
 // SendRequestScoreCheck requests a private TEE eligibility check for the
-// caller against one listing's minScore, returning the FCC instruction ID to
-// poll the proxy for the result.
-func SendRequestScoreCheck(s *support.Support, contractAddr common.Address, listingId *big.Int) (common.Hash, common.Hash, error) {
+// caller against one listing's minScore AND the sealed bid's amount against
+// minBid, returning the FCC instruction ID to poll the proxy for the result.
+// termsCommitment/encryptedTerms should be the same values about to be passed
+// to SubmitSealedBid - the TEE decrypts encryptedTerms itself to check the
+// amount, and binds the attestation to termsCommitment so it can't be
+// replayed against a different bid.
+func SendRequestScoreCheck(s *support.Support, contractAddr common.Address, listingId *big.Int, termsCommitment common.Hash, encryptedTerms []byte) (common.Hash, common.Hash, error) {
 	c, err := veilbidding.NewVeilBidding(contractAddr, s.ChainClient)
 	if err != nil {
 		return common.Hash{}, common.Hash{}, errors.Errorf("failed to bind contract: %s", err)
@@ -266,9 +270,9 @@ func SendRequestScoreCheck(s *support.Support, contractAddr common.Address, list
 	}
 	opts.Value = DefaultFee
 
-	tx, err := c.RequestScoreCheck(opts, listingId)
+	tx, err := c.RequestScoreCheck(opts, listingId, termsCommitment, encryptedTerms)
 	if err != nil {
-		return common.Hash{}, common.Hash{}, errors.Errorf("requestScoreCheck: %s (%s)", err, simulateRevert(s, contractAddr, DefaultFee, "requestScoreCheck", listingId))
+		return common.Hash{}, common.Hash{}, errors.Errorf("requestScoreCheck: %s (%s)", err, simulateRevert(s, contractAddr, DefaultFee, "requestScoreCheck", listingId, termsCommitment, encryptedTerms))
 	}
 	receipt, err := bind.WaitMined(context.Background(), s.ChainClient, tx)
 	if err != nil {
@@ -288,11 +292,13 @@ func SendRequestScoreCheck(s *support.Support, contractAddr common.Address, list
 }
 
 // RequestAndGetScoreAttestation runs the eligibility-check round trip: sends
-// requestScoreCheck, polls the proxy for the TEE-signed result, and returns it
-// as an EligibilityAttestation ready to pass into SubmitSealedBid — no
-// separate relay transaction, submitSealedBid verifies it inline.
-func RequestAndGetScoreAttestation(s *support.Support, contractAddr common.Address, proxyURL string, listingId *big.Int) (veilbidding.VeilBiddingEligibilityAttestation, error) {
-	instructionID, _, err := SendRequestScoreCheck(s, contractAddr, listingId)
+// requestScoreCheck (checking both score and the sealed bid's amount against
+// minBid), polls the proxy for the TEE-signed result, and returns it as an
+// EligibilityAttestation ready to pass into SubmitSealedBid with the same
+// termsCommitment/encryptedTerms - no separate relay transaction,
+// submitSealedBid verifies it inline.
+func RequestAndGetScoreAttestation(s *support.Support, contractAddr common.Address, proxyURL string, listingId *big.Int, termsCommitment common.Hash, encryptedTerms []byte) (veilbidding.VeilBiddingEligibilityAttestation, error) {
+	instructionID, _, err := SendRequestScoreCheck(s, contractAddr, listingId, termsCommitment, encryptedTerms)
 	if err != nil {
 		return EmptyAttestation, errors.Errorf("requestScoreCheck: %s", err)
 	}
@@ -315,7 +321,7 @@ func RequestAndGetScoreAttestation(s *support.Support, contractAddr common.Addre
 }
 
 // SendRequestMyScore requests a private, informational read of the caller's
-// own signal score — no listing/threshold involved, nothing ever posted
+// own signal score - no listing/threshold involved, nothing ever posted
 // back on-chain. Returns the FCC instruction ID to poll the proxy for the result.
 func SendRequestMyScore(s *support.Support, contractAddr common.Address) (common.Hash, common.Hash, error) {
 	c, err := veilbidding.NewVeilBidding(contractAddr, s.ChainClient)

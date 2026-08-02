@@ -13,10 +13,10 @@ import { requestMyScore } from "../../lib/tee/eligibility";
 
 const AUTO_CLOSE_MS = 60000;
 
-// Computes the connected wallet's signal score fresh every time it's opened —
+// Computes the connected wallet's signal score fresh every time it's opened -
 // nothing is cached, since the underlying wallet signals (balance, activity,
 // bid history) can change between checks. Auto-closes 5s after the score
-// actually renders (not from open — the TEE round-trip itself takes a few
+// actually renders (not from open - the TEE round-trip itself takes a few
 // seconds, so starting the timer any earlier would cut off the result).
 export default function SignalScoreModal({ opened, onClose }) {
   const { address } = useWallet();
@@ -60,7 +60,7 @@ export default function SignalScoreModal({ opened, onClose }) {
 
   // Reset for next time once the modal has actually closed, rather than
   // reacting to `!opened` above (which would setState synchronously in the
-  // effect body) — the exit transition still shows the last result.
+  // effect body) - the exit transition still shows the last result.
   const handleClose = () => {
     onClose();
     setScore(null);
@@ -104,7 +104,7 @@ export default function SignalScoreModal({ opened, onClose }) {
             <div className="num-xl">{score}/100</div>
             <Text size="xs" c="dimmed" ta="center" maw={280}>
               Computed privately by the TEE from your wallet's balance, activity,
-              and bidding history — never shared or stored anywhere.
+              and bidding history - never shared or stored anywhere.
             </Text>
           </>
         )}

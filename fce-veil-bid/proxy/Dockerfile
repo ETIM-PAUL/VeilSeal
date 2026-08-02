@@ -5,7 +5,7 @@
 # (tools/go.mod): tee-proxy v0.0.18. tee-proxy's own go.mod transitively pins
 # the matching tee-node and go-flare-common line, so building it with
 # `go mod download` pulls the exact governance-aware node code the extension-tee
-# image uses — no separate tee-node clone or replace directive is needed.
+# image uses - no separate tee-node clone or replace directive is needed.
 # Override via build arg when bumping both sides together.
 
 ARG TEE_PROXY_VERSION=v0.0.18

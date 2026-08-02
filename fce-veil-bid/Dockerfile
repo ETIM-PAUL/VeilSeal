@@ -1,5 +1,5 @@
 # Build context is the veilbidding extension dir. The extension module pulls
-# github.com/flare-foundation/tee-node v0.0.20 from the network — no on-disk
+# github.com/flare-foundation/tee-node v0.0.20 from the network - no on-disk
 # sibling repo or replace directive is needed.
 
 # Pin base image by digest so every build starts from the same bytes

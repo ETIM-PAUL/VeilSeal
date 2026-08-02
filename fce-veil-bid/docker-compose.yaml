@@ -1,4 +1,4 @@
-# Veilbidding extension stack — Coston2/Coston/local simulated.
+# Veilbidding extension stack - Coston2/Coston/local simulated.
 #
 # Usage:
 #   docker compose up -d                                                       # default network
@@ -46,7 +46,7 @@ services:
         required: false
     environment:
       - MODE=${MODE:-1}
-      # Chain id the node binds signatures to — must match the proxy's chain_id
+      # Chain id the node binds signatures to - must match the proxy's chain_id
       # and the chain itself. Defaults to Coston2 (114) like the base proxy
       # config; the coston override sets 16. Override via CHAIN_ID in .env.
       - CHAIN_ID=${CHAIN_ID:-114}
@@ -69,7 +69,7 @@ services:
       - AGENT_STORE_PATH=/app/data/agents.json
     ports:
       - "${TYPES_SERVER_BIND:-127.0.0.1:8100}:8100"
-      # Local-admin agent API (create/toggle/delete/run) — called directly by
+      # Local-admin agent API (create/toggle/delete/run) - called directly by
       # the browser dev server on the same machine, not routed through
       # ext-proxy's public tunnel like /state and /action are (see
       # internal/extension/extension.go's New()).

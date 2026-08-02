@@ -148,7 +148,7 @@ export default function BidDetailDrawer({ opened, onClose, bid: liveBid, onPlace
 
   const sorted = [...bid.participants].sort((a, b) => {
     if (status === "Open") return 0;
-    // Sealed (non-winning) amounts are never disclosed, so they're all 0 —
+    // Sealed (non-winning) amounts are never disclosed, so they're all 0 -
     // sort the revealed winner to the top instead of relying on that.
     if (winner) {
       const aIsWinner = a.wallet.toLowerCase() === winner.wallet.toLowerCase();
@@ -208,7 +208,7 @@ export default function BidDetailDrawer({ opened, onClose, bid: liveBid, onPlace
           <div className="panel" style={{ padding: 14 }}>
             <Group gap={6} mb={onChainLoading || onChainData ? 10 : 0}>
               <LuShieldCheck size={13} color="var(--signal)" />
-              <Text className="label-micro-strong">On-Chain Proof — Listing #{onChainListingId}</Text>
+              <Text className="label-micro-strong">On-Chain Proof - Listing #{onChainListingId}</Text>
             </Group>
 
             {onChainLoading && <Loader size="xs" />}
@@ -253,7 +253,7 @@ export default function BidDetailDrawer({ opened, onClose, bid: liveBid, onPlace
               <Stack gap={8}>
                 <Text size="xs" className="ink-dim">
                   Sealed bids are committed on Coston2. Once the deadline
-                  passes, anyone can trigger the reveal — it routes every
+                  passes, anyone can trigger the reveal - it routes every
                   sealed bid to the registered TEE, which decrypts them,
                   determines the winner, and signs the result.
                 </Text>
@@ -280,7 +280,7 @@ export default function BidDetailDrawer({ opened, onClose, bid: liveBid, onPlace
 
             {!onChainLoading && !onChainData && (
               <Text size="xs" className="ink-faint">
-                On-chain data unavailable — contract not configured or unreachable.
+                On-chain data unavailable - contract not configured or unreachable.
               </Text>
             )}
           </div>
@@ -303,7 +303,7 @@ export default function BidDetailDrawer({ opened, onClose, bid: liveBid, onPlace
               </Group>
 
               <Text size="xs" className="ink-dim" mb={8}>
-                Invited addresses bypass this listing's score gate entirely —
+                Invited addresses bypass this listing's score gate entirely -
                 useful for known bidders who shouldn't need to clear the bar.
               </Text>
 
@@ -356,11 +356,11 @@ export default function BidDetailDrawer({ opened, onClose, bid: liveBid, onPlace
           {sorted.map((p, index) => {
             const isWinner = Boolean(winner) && p.wallet.toLowerCase() === winner.wallet.toLowerCase();
             const canWithdraw = status === "Open" && p.mine && !p.withdrawn;
-            // Only the TEE-attested winner's amount is ever disclosed on-chain —
-            // everyone else's sealed bid stays hidden even after the deadline,
-            // except to the bidder themselves. Local/mock (non-chain) listings
-            // have no such reveal step, so they keep the old "show once closed" behavior.
-            const showAmount = p.mine || (bid.onChainListingId ? isWinner : status === "Closed");
+            // Only the TEE-attested winner's amount is ever disclosed on-chain -
+            // every bid, including your own, stays sealed until then. Local/mock
+            // (non-chain) listings have no such reveal step, so they keep the
+            // old "show once closed" behavior.
+            const showAmount = bid.onChainListingId ? isWinner : status === "Closed";
 
             return (
               <Group
@@ -419,7 +419,7 @@ export default function BidDetailDrawer({ opened, onClose, bid: liveBid, onPlace
 
                   {p.withdrawn && (
                     <Badge variant="outline" color="slate">
-                      Withdrawn
+                      Cancelled
                     </Badge>
                   )}
 
@@ -432,7 +432,7 @@ export default function BidDetailDrawer({ opened, onClose, bid: liveBid, onPlace
                       onClick={() => handleWithdrawClick(p)}
                       loading={withdrawingId === p.id}
                     >
-                      Withdraw
+                      Cancel Bid
                     </Button>
                   )}
                 </Group>

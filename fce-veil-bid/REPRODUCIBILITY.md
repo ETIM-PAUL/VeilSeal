@@ -24,7 +24,7 @@ where they are built.
 
 ## Build context
 
-The build context is this repository's root — `tee-node` and `tee-proxy` are
+The build context is this repository's root - `tee-node` and `tee-proxy` are
 regular versioned dependencies fetched from the Go module proxy (see `go.mod`
 / `go.sum`), not local sibling checkouts, so no special directory layout is
 required.

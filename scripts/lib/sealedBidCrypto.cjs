@@ -1,4 +1,4 @@
-// CommonJS counterpart to src/utils/sealedBid.js — duplicated (not shared)
+// CommonJS counterpart to src/utils/sealedBid.js - duplicated (not shared)
 // because the browser bundle (ESM) and this Node-only TEE simulator (CJS)
 // must never share a module graph: the whole point is that TEE_PRIVATE_KEY-
 // dependent code (decrypt, sign) can only run here, never in the frontend.

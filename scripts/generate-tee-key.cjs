@@ -5,7 +5,7 @@ const EthCrypto = require("eth-crypto");
 
 const identity = EthCrypto.createIdentity();
 
-console.log("Simulated TEE keypair — for demo use only, not a real enclave key:\n");
+console.log("Simulated TEE keypair - for demo use only, not a real enclave key:\n");
 console.log("TEE_ADDRESS=" + identity.address);
 console.log("TEE_PUBLIC_KEY=" + identity.publicKey);
 console.log("TEE_PRIVATE_KEY=" + identity.privateKey);

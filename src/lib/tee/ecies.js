@@ -1,6 +1,6 @@
 // Converts the real TEE's /info public key (x, y as separate 0x-prefixed
 // 32-byte hex strings) into the flat 128-hex-char format eth-crypto's
-// encryptWithPublicKey expects (x || y, no 0x, no leading 04 byte) — see
+// encryptWithPublicKey expects (x || y, no 0x, no leading 04 byte) - see
 // src/utils/sealedBid.js's encryptBidTerms.
 import { fetchTeeInfo } from "./proxy";
 

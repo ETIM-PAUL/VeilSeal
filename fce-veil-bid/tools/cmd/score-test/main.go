@@ -12,6 +12,7 @@ import (
 	"os"
 	"time"
 
+	"veilbidding/pkg/types"
 	"veilbidding/tools/pkg/configs"
 	"veilbidding/tools/pkg/fccutils"
 	"veilbidding/tools/pkg/support"
@@ -46,8 +47,8 @@ func main() {
 	wallet := crypto.PubkeyToAddress(s.Prv.PublicKey)
 	deadline := uint64(time.Now().Unix() + 300)
 
-	// --- Case 1: invite-only, wallet NOT on the list — expect rejection ---
-	logger.Infof("Case 1: invite-only listing, wallet not invited — expect rejection")
+	// --- Case 1: invite-only, wallet NOT on the list - expect rejection ---
+	logger.Infof("Case 1: invite-only listing, wallet not invited - expect rejection")
 	notInvited, _, err := instrutils.CreateListing(s, contractAddr, instrutils.ListingMetadata{
 		Title: "Invite-Only (not me)", Description: "test", ItemType: "file", MinBid: big.NewInt(1),
 		InviteOnly: true, InitialParticipants: []common.Address{someoneElse},
@@ -61,8 +62,8 @@ func main() {
 		logger.Infof("  ✓ submitSealedBid correctly reverted: %s", err)
 	}
 
-	// --- Case 2: score-gated at the minimum threshold — expect acceptance ---
-	logger.Infof("Case 2: score-gated listing at the minimum threshold (5) — expect acceptance")
+	// --- Case 2: score-gated at the minimum threshold - expect acceptance ---
+	logger.Infof("Case 2: score-gated listing at the minimum threshold (5) - expect acceptance")
 	scored, _, err := instrutils.CreateListing(s, contractAddr, instrutils.ListingMetadata{
 		Title: "Low Score Gate", Description: "test", ItemType: "file", MinBid: big.NewInt(1),
 		MinScore: big.NewInt(instrutils.MinScoreThreshold),
@@ -70,7 +71,21 @@ func main() {
 	if err != nil {
 		fccutils.FatalWithCause(errors.Errorf("create score-gated listing: %s", err))
 	}
-	attestation, err := instrutils.RequestAndGetScoreAttestation(s, contractAddr, *pf, scored)
+	// A real sealed bid, not a placeholder - the combined score+amount check
+	// now decrypts encryptedTerms itself, so it needs to be valid ECIES
+	// ciphertext the TEE node can actually decrypt, with an amount that
+	// actually clears this listing's minBid (1).
+	scoredTerms := types.SealedTerms{Amount: big.NewInt(1), Nonce: common.HexToHash("0x02"), Bidder: wallet}
+	scoredCommitment, err := types.TermsCommitment(scoredTerms)
+	if err != nil {
+		fccutils.FatalWithCause(errors.Errorf("compute terms commitment: %s", err))
+	}
+	scoredEncryptedTerms, err := instrutils.EncryptSealedTerms(*pf, scoredTerms)
+	if err != nil {
+		fccutils.FatalWithCause(errors.Errorf("encrypt sealed terms: %s", err))
+	}
+
+	attestation, err := instrutils.RequestAndGetScoreAttestation(s, contractAddr, *pf, scored, scoredCommitment, scoredEncryptedTerms)
 	if err != nil {
 		fccutils.FatalWithCause(errors.Errorf("score check: %s", err))
 	}
@@ -79,13 +94,13 @@ func main() {
 		fccutils.FatalWithCause(errors.Errorf("decode attestation: %s", decodeErr))
 	}
 	logger.Infof("  TEE says eligible=%v (expected true)", eligible)
-	if _, err := instrutils.SubmitSealedBid(s, contractAddr, scored, common.Hash{2}, []byte{2}, attestation); err != nil {
+	if _, err := instrutils.SubmitSealedBid(s, contractAddr, scored, scoredCommitment, scoredEncryptedTerms, attestation); err != nil {
 		fccutils.FatalWithCause(errors.Errorf("FAIL: submitSealedBid should have succeeded: %s", err))
 	}
 	logger.Infof("  ✓ submitSealedBid succeeded with a valid eligible attestation")
 
-	// --- Case 3: invite-only, wallet IS on the list — expect acceptance, no TEE call ---
-	logger.Infof("Case 3: invite-only listing, wallet invited — expect acceptance without any attestation")
+	// --- Case 3: invite-only, wallet IS on the list - expect acceptance, no TEE call ---
+	logger.Infof("Case 3: invite-only listing, wallet invited - expect acceptance without any attestation")
 	invited, _, err := instrutils.CreateListing(s, contractAddr, instrutils.ListingMetadata{
 		Title: "Invite-Only (me)", Description: "test", ItemType: "file", MinBid: big.NewInt(1),
 		InviteOnly: true, InitialParticipants: []common.Address{wallet},
@@ -98,8 +113,8 @@ func main() {
 	}
 	logger.Infof("  ✓ submitSealedBid succeeded via participant bypass, no attestation needed")
 
-	// --- Case 4: MY_SCORE — informational, no listing involved ---
-	logger.Infof("Case 4: requestMyScore — expect a raw score back")
+	// --- Case 4: MY_SCORE - informational, no listing involved ---
+	logger.Infof("Case 4: requestMyScore - expect a raw score back")
 	score, err := instrutils.RequestAndGetMyScore(s, contractAddr, *pf)
 	if err != nil {
 		fccutils.FatalWithCause(errors.Errorf("requestMyScore: %s", err))
@@ -110,9 +125,9 @@ func main() {
 }
 
 func decodeEligible(data []byte) (bool, error) {
-	if len(data) < 96 {
+	if len(data) < 128 {
 		return false, errors.New("result data too short")
 	}
-	// abi.encode(uint256, address, bool) — bool is the third 32-byte word.
-	return data[95] != 0, nil
+	// abi.encode(uint256, address, bytes32, bool) - bool is the fourth 32-byte word.
+	return data[127] != 0, nil
 }

@@ -9,6 +9,7 @@ import {
    import TreasuryDetails from "../pages/TreasuryDetails";
    import Transfers from "../pages/Transfers";
    import Bids from "../pages/Bids";
+   import StealthListings from "../pages/StealthListings";
    import Agents from "../pages/Agents";
    import Operations from "../pages/Operations";
    
@@ -27,6 +28,8 @@ import {
    <Route path="/p2p-transfers" element={<Transfers/>}/>
    
    <Route path="/bids" element={<Bids/>}/>
+
+   <Route path="/stealth-listings" element={<StealthListings/>}/>
 
    <Route path="/agents" element={<Agents/>}/>
 

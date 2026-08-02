@@ -98,7 +98,6 @@ export default function PrivateTransfers() {
     <NewTransferDrawer
     opened={opened}
     onClose={close}
-    type="p2p"
     />
     </>
   );

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { SimpleGrid, Grid, Stack, Title, Text, Button, Group } from "@mantine/core";
 
-import { LuWallet, LuArrowLeftRight, LuGavel, LuUsers, LuPlus, LuShieldCheck } from "react-icons/lu";
+import { LuArrowLeftRight, LuGavel, LuUsers, LuPlus, LuShieldCheck } from "react-icons/lu";
 
 import StatCard from "../components/dashboard/StatCard";
 import StatCardSkeleton from "../components/common/StatCardSkeleton";
@@ -11,17 +11,15 @@ import SignalScoreModal from "../components/dashboard/SignalScoreModal";
 
 import { dashboardStats } from "../data/mockData";
 import { useDisclosure } from "@mantine/hooks";
-import NewTreasuryDrawer from "../components/treasury/NewTreasuryDrawer";
 import NewTransferDrawer from "../components/transfers/NewTransferDrawer";
 import NewBidDrawer from "../components/bids/NewBidDrawer";
 import { useBids } from "../context/useBids";
 
-const icons = [LuWallet, LuArrowLeftRight, LuGavel, LuUsers];
+const icons = [LuArrowLeftRight, LuGavel, LuUsers];
 
 export default function Dashboard() {
   const { createListing } = useBids();
 
-  const [opened, { open, close }] = useDisclosure(false);
   const [openedP2p, { open: openP2p, close: closeP2p }] = useDisclosure(false);
   const [scoreOpened, { open: openScore, close: closeScore }] = useDisclosure(false);
   // Dashboard's is the only NewBidDrawer entry point that shows the standard-
@@ -43,8 +41,8 @@ export default function Dashboard() {
             <Title order={2}>Good afternoon</Title>
 
             <Text className="caption" mt={4} maw={520}>
-              Private payments, treasury management, and sealed bidding powered
-              by Flare Confidential Compute.
+              Private payments and sealed bidding powered by Flare Confidential
+              Compute.
             </Text>
           </div>
 
@@ -86,15 +84,6 @@ export default function Dashboard() {
                 <Button
                   justify="flex-start"
                   variant="light"
-                  onClick={open}
-                  leftSection={<LuWallet size={15} />}
-                >
-                  New Treasury
-                </Button>
-
-                <Button
-                  justify="flex-start"
-                  variant="light"
                   onClick={openP2p}
                   leftSection={<LuArrowLeftRight size={15} />}
                 >
@@ -115,7 +104,6 @@ export default function Dashboard() {
         </Grid>
       </Stack>
 
-      <NewTreasuryDrawer opened={opened} onClose={close} />
       <NewTransferDrawer opened={openedP2p} onClose={closeP2p} />
       <SignalScoreModal opened={scoreOpened} onClose={closeScore} />
       <NewBidDrawer opened={newBidOpened} onClose={closeNewBid} onCreate={createListing} />

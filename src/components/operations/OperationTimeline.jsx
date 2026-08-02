@@ -6,7 +6,7 @@ const DEFAULT_STEPS = [
   "Waiting for Relay",
   "Executing in TEE",
   "Attestation Verified",
-  "Treasury Updated",
+  "Operation Completed",
 ];
 
 export default function OperationTimeline({ current = 2, failed = false, steps = DEFAULT_STEPS }) {

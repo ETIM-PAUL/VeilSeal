@@ -16,7 +16,7 @@ export default function OperationsFilters({
   return (
     <Group>
       <TextInput
-        placeholder="Search wallet or treasury..."
+        placeholder="Search wallet..."
         leftSection={<LuSearch size={15} />}
         value={search}
         onChange={(e) => onSearch(e.currentTarget.value)}

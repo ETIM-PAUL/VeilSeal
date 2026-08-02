@@ -30,7 +30,6 @@ const TOKENS = [
 export default function NewTransferDrawer({
   opened,
   onClose,
-  type,
 }) {
   const [step, setStep] = useState(0);
 
@@ -73,7 +72,6 @@ export default function NewTransferDrawer({
               label="Recipient Wallet"
               placeholder="0x..."
               value={recipient}
-              disabled={type === "treasury"}
               onChange={(e) =>
                 setRecipient(e.currentTarget.value)
               }

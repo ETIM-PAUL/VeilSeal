@@ -1,4 +1,3 @@
-import { treasuries, treasuryContributions } from "../data/mockData";
 import { transfers } from "../data/transfers";
 import { bids } from "../data/bids";
 import { getBidStatus, getWinner } from "./bids";
@@ -37,9 +36,7 @@ export function getOperationProgress(operation) {
 }
 
 export function finalStepLabel(type) {
-  if (type === "Transfer") return "Transfer Completed";
-  if (type === "Bid") return "Bid Resolved";
-  return "Treasury Updated";
+  return type === "Transfer" ? "Transfer Completed" : "Bid Resolved";
 }
 
 function mockTxHash() {
@@ -49,22 +46,6 @@ function mockTxHash() {
 }
 
 export function buildOperationsFeed() {
-  const contributionOps = Object.entries(treasuryContributions).flatMap(([treasuryId, items]) => {
-    const treasuryName = treasuries.find((t) => t.id === treasuryId)?.name ?? treasuryId;
-
-    return items.map((item) => ({
-      id: `contribution-${treasuryId}-${item.id}`,
-      type: "Contribution",
-      party: treasuryName,
-      wallet: item.wallet,
-      amount: item.amount,
-      token: item.token,
-      status: item.status,
-      time: item.time,
-      txHash: item.txHash,
-    }));
-  });
-
   const transferOps = transfers.map((item) => ({
     id: `transfer-${item.id}`,
     type: "Transfer",
@@ -103,5 +84,5 @@ export function buildOperationsFeed() {
     });
   });
 
-  return [...contributionOps, ...transferOps, ...bidOps];
+  return [...transferOps, ...bidOps];
 }

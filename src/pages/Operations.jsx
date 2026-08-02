@@ -5,7 +5,7 @@ import { LuActivity, LuHourglass, LuCheckCheck, LuOctagonAlert } from "react-ico
 import StatCard from "../components/dashboard/StatCard";
 import OperationsFilters from "../components/operations/OperationsFilters";
 import OperationsTable from "../components/operations/OperationsTable";
-import OperationDrawer from "../components/treasury/OperationDrawer";
+import OperationDrawer from "../components/operations/OperationDrawer";
 import EmptyState from "../components/common/EmptyState";
 
 import { buildOperationsFeed } from "../utils/operations";
@@ -54,7 +54,7 @@ export default function Operations() {
           <Title order={2}>Operations</Title>
 
           <Text className="caption" mt={4}>
-            Every confidential operation - contributions, transfers, and sealed bids - processed through Flare Confidential Compute.
+            Every confidential operation - transfers and sealed bids - processed through Flare Confidential Compute.
           </Text>
         </div>
 
@@ -80,7 +80,7 @@ export default function Operations() {
             <EmptyState
               icon={LuActivity}
               title="No operations found"
-              description="Try adjusting your filters - confidential operations from treasuries, transfers, and bids will appear here."
+              description="Try adjusting your filters - confidential operations from transfers and bids will appear here."
             />
           </div>
         ) : (

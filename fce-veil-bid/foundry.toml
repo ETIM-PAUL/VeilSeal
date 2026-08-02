@@ -6,3 +6,9 @@ libs = ["lib"]
 # and restore the remapping:
 #   remappings = ["flare-smart-contracts-v2=lib/flare-smart-contracts-v2"]
 via-ir = true
+# Was previously disabled entirely - fine while the contract stayed under
+# EIP-170's 24576-byte limit, but the stealth-listing subsystem pushed
+# runtime bytecode to ~30KB. Low runs favors bytecode size over per-call gas
+# efficiency, which is the right tradeoff to fit under the limit at all.
+optimizer = true
+optimizer_runs = 1

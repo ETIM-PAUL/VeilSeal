@@ -66,21 +66,23 @@ const ACCESS_MODES = [
   { value: "invite", label: "Invite Only" },
 ];
 
-const initial = {
-  title: "",
-  description: "",
-  itemType: "image",
-  fileName: "",
-  previewUrl: "",
-  ipfsHash: "",
-  deadline: null,
-  minBid: undefined,
-  token: "FLR",
-  listingType: "standard",
-  accessMode: "score",
-  minScore: 50,
-  participants: "",
-};
+function initialForm(lockedType) {
+  return {
+    title: "",
+    description: "",
+    itemType: "image",
+    fileName: "",
+    previewUrl: "",
+    ipfsHash: "",
+    deadline: null,
+    minBid: undefined,
+    token: "FLR",
+    listingType: lockedType ?? "standard",
+    accessMode: "score",
+    minScore: 50,
+    participants: "",
+  };
+}
 
 function parseParticipants(raw) {
   return raw
@@ -89,9 +91,14 @@ function parseParticipants(raw) {
     .filter((a) => /^0x[a-fA-F0-9]{40}$/.test(a));
 }
 
-export default function NewBidDrawer({ opened, onClose, onCreate }) {
+/// @param lockedType optional "standard" | "stealth" - when set, the type
+///   toggle is hidden entirely and the form is fixed to that type. Used by
+///   the Listings and Stealth Listings pages, which each only ever want one
+///   kind created from their own "New" button. Leave unset (Dashboard's
+///   entry point) to show the toggle and let the user pick either.
+export default function NewBidDrawer({ opened, onClose, onCreate = () => {}, lockedType }) {
   const [step, setStep] = useState(0);
-  const [form, setForm] = useState(initial);
+  const [form, setForm] = useState(() => initialForm(lockedType));
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState(null);
   const [publishing, setPublishing] = useState(false);
@@ -105,7 +112,7 @@ export default function NewBidDrawer({ opened, onClose, onCreate }) {
   const next = () => setStep((s) => s + 1);
 
   const reset = () => {
-    setForm(initial);
+    setForm(initialForm(lockedType));
     setStep(0);
     setUploadError(null);
     setPublishError(null);
@@ -265,7 +272,13 @@ export default function NewBidDrawer({ opened, onClose, onCreate }) {
     (form.listingType !== "stealth" || parseParticipants(form.participants).length > 0);
 
   return (
-    <Drawer opened={opened} onClose={reset} position="right" size="xl" title="Create Bid Listing">
+    <Drawer
+      opened={opened}
+      onClose={reset}
+      position="right"
+      size="xl"
+      title={lockedType === "stealth" ? "Create Stealth Listing" : lockedType === "standard" ? "Create Listing" : "Create Bid Listing"}
+    >
       <Stepper active={step} allowNextStepsSelect={false}>
         <Stepper.Step label="Item">
           <Grid mt="lg">
@@ -347,28 +360,30 @@ export default function NewBidDrawer({ opened, onClose, onCreate }) {
                   />
                 </Group>
 
-                <div>
-                  <Text size="sm" fw={500} mb={6}>
-                    Listing Type
-                  </Text>
-
-                  <SegmentedControl
-                    fullWidth
-                    data={LISTING_TYPES}
-                    value={form.listingType}
-                    onChange={set("listingType")}
-                  />
-
-                  {form.listingType === "stealth" && (
-                    <Text size="xs" className="ink-dim" mt={6}>
-                      Title, description, item type, IPFS link, and minimum bid are all
-                      ECIES-encrypted before they ever reach the contract - nothing about
-                      what's being auctioned is readable on-chain. Always invite-only:
-                      you'll get a hashed ID after creating it to share with invited
-                      bidders directly, since there's no public listing to browse into.
+                {!lockedType && (
+                  <div>
+                    <Text size="sm" fw={500} mb={6}>
+                      Listing Type
                     </Text>
-                  )}
-                </div>
+
+                    <SegmentedControl
+                      fullWidth
+                      data={LISTING_TYPES}
+                      value={form.listingType}
+                      onChange={set("listingType")}
+                    />
+                  </div>
+                )}
+
+                {form.listingType === "stealth" && (
+                  <Text size="xs" className="ink-dim">
+                    Title, description, item type, IPFS link, and minimum bid are all
+                    ECIES-encrypted before they ever reach the contract - nothing about
+                    what's being auctioned is readable on-chain. Always invite-only:
+                    you'll get a hashed ID after creating it to share with invited
+                    bidders directly, since there's no public listing to browse into.
+                  </Text>
+                )}
 
                 {form.listingType === "stealth" ? (
                   <Textarea

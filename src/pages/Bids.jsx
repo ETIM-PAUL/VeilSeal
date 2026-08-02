@@ -19,7 +19,7 @@ export default function Bids() {
   // away from /bids and back doesn't re-fetch or re-flash the skeleton -
   // only refresh() (the Refresh button) or the connected wallet changing
   // triggers a re-fetch. See src/context/BidsContext.jsx.
-  const { bids, setBids, loading: chainLoading, error: chainError, refresh } = useBids();
+  const { bids, setBids, loading: chainLoading, error: chainError, refresh, createListing } = useBids();
 
   const [search, setSearch] = useState("");
   const [type, setType] = useState("All");
@@ -41,16 +41,6 @@ export default function Bids() {
       return sort === "deadline-asc" ? diff : -diff;
     });
   }, [bids, search, type, status, sort]);
-
-  const handleCreate = (data) => {
-    const onChainListingId = data.onChainListingId;
-    if (!onChainListingId) return; // creation always goes through the real contract now
-
-    setBids((prev) => [{ id: `chain-${onChainListingId}`, participants: [], ...data }, ...prev]);
-
-    // Pick up the authoritative on-chain state (bidders, exact field values) on the next fetch.
-    refresh();
-  };
 
   const handlePlaceBid = ({ amount, token, wallet, termsCommitment, txHash }) => {
     setBids((prev) =>
@@ -168,7 +158,7 @@ export default function Bids() {
         )}
       </Stack>
 
-      <NewBidDrawer opened={newOpened} onClose={closeNew} onCreate={handleCreate} />
+      <NewBidDrawer opened={newOpened} onClose={closeNew} onCreate={createListing} lockedType="standard" />
 
       <PlaceBidDrawer
         opened={!!placeBidId}

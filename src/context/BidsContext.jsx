@@ -90,9 +90,25 @@ export function BidsProvider({ children }) {
 
   const refresh = useCallback(() => setRefreshTick((t) => t + 1), []);
 
+  // Shared by every NewBidDrawer entry point (Dashboard, Listings) so a
+  // freshly-created standard listing shows up immediately without waiting on
+  // the next on-chain fetch, then gets replaced with authoritative state on
+  // the refresh() below. Stealth listings never call this - they're
+  // deliberately not part of the on-chain-discovered grid.
+  const createListing = useCallback(
+    (data) => {
+      const onChainListingId = data.onChainListingId;
+      if (!onChainListingId) return; // creation always goes through the real contract now
+
+      setBids((prev) => [{ id: `chain-${onChainListingId}`, participants: [], ...data }, ...prev]);
+      refresh();
+    },
+    [refresh]
+  );
+
   const value = useMemo(
-    () => ({ bids, setBids, loading, error, refresh }),
-    [bids, loading, error, refresh]
+    () => ({ bids, setBids, loading, error, refresh, createListing }),
+    [bids, loading, error, refresh, createListing]
   );
 
   return <BidsContext.Provider value={value}>{children}</BidsContext.Provider>;

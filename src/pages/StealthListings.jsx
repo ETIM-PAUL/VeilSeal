@@ -1,9 +1,11 @@
 import { useState } from "react";
 
 import { Alert, Badge, Button, Divider, Group, Loader, NumberInput, Stack, Text, TextInput, Title } from "@mantine/core";
-import { LuGavel, LuLock, LuSearch, LuShieldCheck, LuSparkles } from "react-icons/lu";
+import { useDisclosure } from "@mantine/hooks";
+import { LuGavel, LuLock, LuPlus, LuSearch, LuShieldCheck, LuSparkles } from "react-icons/lu";
 
 import BidThumbnail from "../components/bids/BidThumbnail";
+import NewBidDrawer from "../components/bids/NewBidDrawer";
 import { useWallet } from "../context/useWallet";
 import { getBidStatus, formatCountdown, formatDeadline } from "../utils/bids";
 import { truncateAddress, explorerTxUrl } from "../utils/network";
@@ -31,6 +33,8 @@ function isValidHashedId(value) {
 
 export default function StealthListings() {
   const { address } = useWallet();
+
+  const [newOpened, { open: openNew, close: closeNew }] = useDisclosure(false);
 
   const [hashedIdInput, setHashedIdInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -154,15 +158,22 @@ export default function StealthListings() {
   const iWon = revealed && address && listing.onChain.winner.toLowerCase() === address.toLowerCase();
 
   return (
+    <>
     <Stack gap="xl">
-      <div>
-        <Title order={2}>Stealth Listings</Title>
+      <Group justify="space-between" align="flex-start">
+        <div>
+          <Title order={2}>Stealth Listings</Title>
 
-        <Text className="caption" mt={4}>
-          Every detail of a stealth listing is encrypted - nothing is browsable. If you've
-          been invited, enter the hashed ID the creator shared with you to view and bid on it.
-        </Text>
-      </div>
+          <Text className="caption" mt={4}>
+            Every detail of a stealth listing is encrypted - nothing is browsable. If you've
+            been invited, enter the hashed ID the creator shared with you to view and bid on it.
+          </Text>
+        </div>
+
+        <Button leftSection={<LuPlus size={15} />} onClick={openNew}>
+          New Stealth Listing
+        </Button>
+      </Group>
 
       <div className="panel" style={{ padding: 16 }}>
         <Group align="flex-end" gap="sm">
@@ -358,5 +369,8 @@ export default function StealthListings() {
         </div>
       )}
     </Stack>
+
+    <NewBidDrawer opened={newOpened} onClose={closeNew} lockedType="stealth" />
+    </>
   );
 }

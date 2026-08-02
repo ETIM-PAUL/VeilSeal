@@ -13,13 +13,21 @@ import { dashboardStats } from "../data/mockData";
 import { useDisclosure } from "@mantine/hooks";
 import NewTreasuryDrawer from "../components/treasury/NewTreasuryDrawer";
 import NewTransferDrawer from "../components/transfers/NewTransferDrawer";
+import NewBidDrawer from "../components/bids/NewBidDrawer";
+import { useBids } from "../context/useBids";
 
 const icons = [LuWallet, LuArrowLeftRight, LuGavel, LuUsers];
 
 export default function Dashboard() {
+  const { createListing } = useBids();
+
   const [opened, { open, close }] = useDisclosure(false);
   const [openedP2p, { open: openP2p, close: closeP2p }] = useDisclosure(false);
   const [scoreOpened, { open: openScore, close: closeScore }] = useDisclosure(false);
+  // Dashboard's is the only NewBidDrawer entry point that shows the standard-
+  // vs-stealth type toggle - Listings and Stealth Listings each open it
+  // locked to one type instead (see their own "New" buttons).
+  const [newBidOpened, { open: openNewBid, close: closeNewBid }] = useDisclosure(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -96,6 +104,7 @@ export default function Dashboard() {
                 <Button
                   justify="flex-start"
                   variant="light"
+                  onClick={openNewBid}
                   leftSection={<LuGavel size={15} />}
                 >
                   New Sealed Bid
@@ -109,6 +118,7 @@ export default function Dashboard() {
       <NewTreasuryDrawer opened={opened} onClose={close} />
       <NewTransferDrawer opened={openedP2p} onClose={closeP2p} />
       <SignalScoreModal opened={scoreOpened} onClose={closeScore} />
+      <NewBidDrawer opened={newBidOpened} onClose={closeNewBid} onCreate={createListing} />
     </>
   );
 }

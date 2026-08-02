@@ -19,7 +19,7 @@ const baseLinks = [
   { name: "Dashboard", path: "/", icon: LuLayoutDashboard },
   { name: "Treasuries", path: "/treasuries", icon: LuWallet },
   { name: "P2P Transfers", path: "/p2p-transfers", icon: LuArrowLeftRight },
-  { name: "Closed Bids", path: "/bids", icon: LuGavel },
+  { name: "Standard Listings", path: "/listings", icon: LuGavel },
   { name: "Agent", path: "/agents", icon: LuBot },
   { name: "Operations", path: "/operations", icon: LuActivity },
 ];
@@ -32,9 +32,9 @@ const STEALTH_LINK = { name: "Stealth Listings", path: "/stealth-listings", icon
 
 export default function Sidebar() {
   const { isConnected } = useWallet();
-  const closedBidsIndex = baseLinks.findIndex((l) => l.path === "/bids");
+  const listingsIndex = baseLinks.findIndex((l) => l.path === "/listings");
   const links = isConnected
-    ? [...baseLinks.slice(0, closedBidsIndex + 1), STEALTH_LINK, ...baseLinks.slice(closedBidsIndex + 1)]
+    ? [...baseLinks.slice(0, listingsIndex + 1), STEALTH_LINK, ...baseLinks.slice(listingsIndex + 1)]
     : baseLinks;
 
   return (

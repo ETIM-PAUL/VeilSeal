@@ -27,7 +27,7 @@ import {
    
    <Route path="/p2p-transfers" element={<Transfers/>}/>
    
-   <Route path="/bids" element={<Bids/>}/>
+   <Route path="/listings" element={<Bids/>}/>
 
    <Route path="/stealth-listings" element={<StealthListings/>}/>
 

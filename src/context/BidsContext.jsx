@@ -57,6 +57,7 @@ export function BidsProvider({ children }) {
               creator: listing.creator,
               deadline: new Date(Number(listing.deadline) * 1000).toISOString(),
               txHash: listing.txHash,
+              blockNumber: listing.blockNumber,
               title: listing.title,
               description: listing.description,
               itemType: listing.itemType,

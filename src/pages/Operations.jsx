@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { SimpleGrid, Stack, Text, Title, Loader } from "@mantine/core";
-import { LuActivity, LuHourglass, LuCheckCheck } from "react-icons/lu";
+import { LuActivity, LuHourglass, LuCheckCheck, LuShieldCheck } from "react-icons/lu";
 
 import StatCard from "../components/dashboard/StatCard";
 import StatCardSkeleton from "../components/common/StatCardSkeleton";
@@ -9,43 +9,17 @@ import OperationsTable from "../components/operations/OperationsTable";
 import OperationDrawer from "../components/operations/OperationDrawer";
 import EmptyState from "../components/common/EmptyState";
 
-import { useBids } from "../context/useBids";
-import { fetchBidActivity } from "../contracts/VeilBidding";
-import { buildOperationsFeed } from "../utils/operations";
-
-const PENDING_STATUSES = ["Sealed"];
-const RESOLVED_STATUSES = ["Won", "Lost", "Withdrawn"];
+import { useOperationsFeed } from "../hooks/useOperationsFeed";
+import { PENDING_STATUSES, RESOLVED_STATUSES } from "../utils/operations";
 
 export default function Operations() {
-  // Listings/participants come from BidsContext (already fetched for the
-  // Listings page); activity (real tx hashes + timestamps for each sealed/
-  // cancelled bid) is fetched once here - see fetchBidActivity.
-  const { bids, loading: bidsLoading } = useBids();
-  const [activity, setActivity] = useState([]);
-  const [activityLoading, setActivityLoading] = useState(true);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    (async () => {
-      setActivityLoading(true);
-      try {
-        const events = await fetchBidActivity();
-        if (!cancelled) setActivity(events);
-      } catch {
-        if (!cancelled) setActivity([]);
-      } finally {
-        if (!cancelled) setActivityLoading(false);
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  const loading = bidsLoading || activityLoading;
-  const feed = useMemo(() => buildOperationsFeed(bids, activity), [bids, activity]);
+  // Bid activity (Sealed/Won/Lost/Withdrawn) is a global feed across every
+  // bidder - only the sealed amount is ever confidential, not who bid.
+  // "Listing" rows are the one part scoped to the connected wallet: listings
+  // it created. Both are standard-listing-only - see buildOperationsFeed's
+  // comment on why stealth listings never appear here. Shared with
+  // Dashboard's activity feed/stat cards - see useOperationsFeed.
+  const { feed, loading } = useOperationsFeed();
 
   const [search, setSearch] = useState("");
   const [type, setType] = useState("All");
@@ -84,8 +58,15 @@ export default function Operations() {
           <Title order={2}>Operations</Title>
 
           <Text className="caption" mt={4}>
-            Every sealed bid, reveal, and withdrawal, sourced directly from on-chain activity
-            processed through Flare Confidential Compute.
+            Every sealed bid, reveal, and withdrawal across the marketplace, plus the listings
+            your connected wallet has created - sourced directly from on-chain activity processed
+            through Flare Confidential Compute.
+          </Text>
+
+          <Text size="xs" className="ink-faint" mt={6}>
+            <LuShieldCheck size={12} style={{ verticalAlign: "-1px", marginRight: 4 }} />
+            Standard listings only - stealth listings stay encrypted and undiscoverable by design,
+            so their bids and creation never appear here, even for the wallet that created them.
           </Text>
         </div>
 
@@ -98,8 +79,8 @@ export default function Operations() {
         ) : (
           <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }}>
             <StatCard title="Total Operations" value={stats.total} icon={LuActivity} />
-            <StatCard title="Pending" value={stats.pending} icon={LuHourglass} description="Sealed, awaiting reveal" />
-            <StatCard title="Resolved" value={stats.resolved} icon={LuCheckCheck} description="Won, lost, or withdrawn" />
+            <StatCard title="Pending" value={stats.pending} icon={LuHourglass} description="Sealed or awaiting reveal" />
+            <StatCard title="Resolved" value={stats.resolved} icon={LuCheckCheck} description="Won, lost, withdrawn, or revealed" />
           </SimpleGrid>
         )}
 
@@ -122,7 +103,7 @@ export default function Operations() {
             <EmptyState
               icon={LuActivity}
               title="No operations found"
-              description="Try adjusting your filters - sealed bids, reveals, and withdrawals will appear here."
+              description="Try adjusting your filters - sealed bids, reveals, withdrawals, and your own listings will appear here."
             />
           </div>
         ) : (

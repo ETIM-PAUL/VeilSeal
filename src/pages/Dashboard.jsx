@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react";
+import { useMemo } from "react";
 import { SimpleGrid, Grid, Stack, Title, Text, Button, Group } from "@mantine/core";
 
-import { LuArrowLeftRight, LuGavel, LuUsers, LuPlus, LuShieldCheck } from "react-icons/lu";
+import { LuArrowLeftRight, LuGavel, LuActivity, LuHourglass, LuCheckCheck, LuShieldCheck } from "react-icons/lu";
 
 import StatCard from "../components/dashboard/StatCard";
 import StatCardSkeleton from "../components/common/StatCardSkeleton";
@@ -9,16 +9,19 @@ import ActivityFeed from "../components/dashboard/ActivityFeed";
 import ActivityFeedSkeleton from "../components/dashboard/ActivityFeedSkeleton";
 import SignalScoreModal from "../components/dashboard/SignalScoreModal";
 
-import { dashboardStats } from "../data/mockData";
 import { useDisclosure } from "@mantine/hooks";
 import NewTransferDrawer from "../components/transfers/NewTransferDrawer";
 import NewBidDrawer from "../components/bids/NewBidDrawer";
 import { useBids } from "../context/useBids";
-
-const icons = [LuArrowLeftRight, LuGavel, LuUsers];
+import { useOperationsFeed } from "../hooks/useOperationsFeed";
+import { PENDING_STATUSES, RESOLVED_STATUSES, activityTitle } from "../utils/operations";
 
 export default function Dashboard() {
   const { createListing } = useBids();
+  // Same real on-chain feed the Operations page reads - see
+  // useOperationsFeed/buildOperationsFeed for what's in it (global bid
+  // activity + the connected wallet's own listings, standard listings only).
+  const { feed, loading } = useOperationsFeed();
 
   const [openedP2p, { open: openP2p, close: closeP2p }] = useDisclosure(false);
   const [scoreOpened, { open: openScore, close: closeScore }] = useDisclosure(false);
@@ -26,12 +29,20 @@ export default function Dashboard() {
   // vs-stealth type toggle - Listings and Stealth Listings each open it
   // locked to one type instead (see their own "New" buttons).
   const [newBidOpened, { open: openNewBid, close: closeNewBid }] = useDisclosure(false);
-  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const t = setTimeout(() => setLoading(false), 500);
-    return () => clearTimeout(t);
-  }, []);
+  const stats = useMemo(
+    () => ({
+      total: feed.length,
+      pending: feed.filter((op) => PENDING_STATUSES.includes(op.status)).length,
+      resolved: feed.filter((op) => RESOLVED_STATUSES.includes(op.status)).length,
+    }),
+    [feed]
+  );
+
+  const recentActivity = useMemo(
+    () => feed.slice(0, 3).map((op) => ({ id: op.id, title: activityTitle(op), time: op.time, status: op.status })),
+    [feed]
+  );
 
   return (
     <>
@@ -47,31 +58,27 @@ export default function Dashboard() {
           </div>
 
           <Group gap="sm">
-            <Button variant="subtle" leftSection={<LuShieldCheck size={15} />} onClick={openScore}>
+            <Button variant="filled" leftSection={<LuShieldCheck size={15} />} onClick={openScore}>
               Check My Signal Score
             </Button>
-
-            <Button leftSection={<LuPlus size={15} />}>New Transaction</Button>
           </Group>
         </Group>
 
-        <SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }}>
-          {loading
-            ? Array.from({ length: 4 }).map((_, i) => <StatCardSkeleton key={i} />)
-            : dashboardStats.map((stat, index) => (
-                <StatCard
-                  key={stat.title}
-                  title={stat.title}
-                  value={stat.value}
-                  description={stat.description}
-                  icon={icons[index]}
-                />
-              ))}
+        <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }}>
+          {loading ? (
+            Array.from({ length: 3 }).map((_, i) => <StatCardSkeleton key={i} />)
+          ) : (
+            <>
+              <StatCard title="Total Operations" value={stats.total} icon={LuActivity} />
+              <StatCard title="Pending" value={stats.pending} icon={LuHourglass} description="Sealed or awaiting reveal" />
+              <StatCard title="Resolved" value={stats.resolved} icon={LuCheckCheck} description="Won, lost, withdrawn, or revealed" />
+            </>
+          )}
         </SimpleGrid>
 
         <Grid>
           <Grid.Col span={{ base: 12, md: 8 }}>
-            {loading ? <ActivityFeedSkeleton /> : <ActivityFeed />}
+            {loading ? <ActivityFeedSkeleton /> : <ActivityFeed items={recentActivity} />}
           </Grid.Col>
 
           <Grid.Col span={{ base: 12, md: 4 }}>

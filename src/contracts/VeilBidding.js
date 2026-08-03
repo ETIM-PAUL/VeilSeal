@@ -135,7 +135,7 @@ const LOG_CHUNK_SIZE = 25;
 // Scoped by contract address + schema version so a redeploy (new address, or
 // new fields on ListingCreated) never merges stale cached events with a
 // different contract's/schema's data.
-const LISTINGS_CACHE_KEY = `veilpay:listing-events-cache:v2:${VEIL_BIDDING_ADDRESS}`;
+const LISTINGS_CACHE_KEY = `veilpay:listing-events-cache:v3:${VEIL_BIDDING_ADDRESS}`;
 
 async function queryLogsChunked(contract, filter, fromBlock, toBlock) {
   const events = [];
@@ -196,6 +196,7 @@ export async function fetchAllListings() {
     minScore: event.args.minScore.toString(),
     inviteOnly: event.args.inviteOnly,
     txHash: event.transactionHash,
+    blockNumber: event.blockNumber,
   }));
 
   const merged = [...cachedEvents, ...newEvents];
@@ -213,7 +214,18 @@ export async function fetchAllListings() {
     minScore: BigInt(e.minScore ?? 0),
     inviteOnly: Boolean(e.inviteOnly),
     txHash: e.txHash,
+    blockNumber: e.blockNumber,
   }));
+}
+
+/// Resolves the block timestamp (ms epoch) for each given block number,
+/// deduped so a block referenced by several events only costs one RPC call.
+/// Shared by fetchBidActivity and Operations' "listings I created" rows.
+export async function resolveBlockTimestamps(blockNumbers) {
+  const provider = getReadOnlyProvider();
+  const uniqueBlocks = [...new Set(blockNumbers)];
+  const blocks = await Promise.all(uniqueBlocks.map((n) => provider.getBlock(n)));
+  return new Map(uniqueBlocks.map((n, i) => [n, Number(blocks[i]?.timestamp ?? 0) * 1000]));
 }
 
 // Scoped by contract address + schema version, same reasoning as

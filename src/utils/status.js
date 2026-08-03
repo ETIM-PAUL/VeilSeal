@@ -16,6 +16,8 @@ export const STATUS_COLOR = {
   Won: "signal",
   Lost: "slate",
   Withdrawn: "slate",
+  "Awaiting Reveal": "amber",
+  Revealed: "signal",
 };
 
 export function statusColor(status) {

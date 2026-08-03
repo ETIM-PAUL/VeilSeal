@@ -78,6 +78,14 @@ export default function SignalScoreModal({ opened, onClose }) {
   return (
     <Modal opened={opened} onClose={handleClose} title="Your Signal Score" centered size="sm">
       <Stack align="center" py="md" gap="sm">
+        <Text size="xs" c="dimmed" ta="center" maw={320}>
+          Score-gated listings require a minimum signal score to bid without an explicit invite.
+          It's a 0-100 measure the TEE computes privately from your wallet's native balance,
+          on-chain transaction count, and prior sealed bids on VeilPay - the underlying signals
+          and the score itself never leave the enclave or touch the chain, only a pass/fail is
+          ever revealed to a listing you try to bid on.
+        </Text>
+
         {loading && (
           <>
             <Loader size="sm" />

@@ -52,6 +52,16 @@ func RegisterDecoders(r *decoder.Registry) {
 		decoder.RegistryKey{OPType: "BID", OPCommand: "STEALTH_REVEAL", Kind: decoder.KindResult},
 		stealthRevealResultDecoder{},
 	)
+	// CIPHER_REVEAL message (ABI-encoded CipherRevealMessage struct)
+	r.Register(
+		decoder.RegistryKey{OPType: "CIPHER", OPCommand: "CIPHER_REVEAL", Kind: decoder.KindMessage},
+		decoder.NewABIDecoder[CipherRevealRequest](CipherRevealMessageArg),
+	)
+	// CIPHER_REVEAL result (flat ABI tuple: uint256, address, address, uint8[], uint8[])
+	r.Register(
+		decoder.RegistryKey{OPType: "CIPHER", OPCommand: "CIPHER_REVEAL", Kind: decoder.KindResult},
+		cipherRevealResultDecoder{},
+	)
 }
 
 // myScoreResultDecoder decodes the flat ABI-encoded my-score result the TEE
@@ -130,5 +140,27 @@ func (revealResultDecoder) Decode(data []byte) (any, error) {
 		ContractAddr:  vals[1].(common.Address),
 		Winner:        vals[2].(common.Address),
 		WinningAmount: vals[3].(*big.Int),
+	}, nil
+}
+
+// cipherRevealResultDecoder decodes the flat ABI-encoded cipher reveal result
+// that the TEE returns (and that VeilBidding.submitCipherRevealResult decodes
+// on-chain). No match-count field - the frontend diffs the two arrangements.
+type cipherRevealResultDecoder struct{}
+
+func (cipherRevealResultDecoder) Decode(data []byte) (any, error) {
+	vals, err := CipherRevealResultArgs.Unpack(data)
+	if err != nil {
+		return nil, err
+	}
+	if len(vals) != 5 {
+		return nil, fmt.Errorf("expected 5 values, got %d", len(vals))
+	}
+	return CipherRevealResult{
+		ListingId:         vals[0].(*big.Int),
+		ContractAddr:      vals[1].(common.Address),
+		Winner:            vals[2].(common.Address),
+		WinnerArrangement: vals[3].([]uint8),
+		TrueArrangement:   vals[4].([]uint8),
 	}, nil
 }

@@ -76,4 +76,36 @@ export async function requestAndRelayStealthReveal(contract, hashedId, instructi
   return { instructionId, actionResponse, requestReceipt: receipt, relayReceipt };
 }
 
+/// Cipher-listing counterpart to requestAndRelayReveal - the TEE generates a
+/// fresh reordering of the word list, decrypts every sealed guess, and picks
+/// the closest match, keyed by listingId same as a regular reveal.
+/// @param contract ethers Contract instance (VeilBidding)
+/// @param listingId bigint
+/// @param instructionFee bigint - wei value to forward to sendInstructions
+/// @param onStep optional (label: string) => void progress callback
+export async function requestAndRelayCipherReveal(contract, listingId, instructionFee, onStep) {
+  onStep?.("Requesting reveal on-chain…");
+  const tx = await contract.requestCipherReveal(listingId, { value: instructionFee });
+  const receipt = await tx.wait();
+
+  const instructionId = parseInstructionIdFromReceipt(receipt);
+  if (!instructionId) {
+    throw new Error("Could not parse instruction ID from requestCipherReveal receipt");
+  }
+
+  onStep?.("Waiting for the TEE to generate its arrangement and score sealed guesses…");
+  const actionResponse = await pollActionResult(instructionId);
+  if (actionResponse.result.status !== 1) {
+    throw new Error(actionResponse.result.log ?? "TEE reported failure");
+  }
+
+  const { data, actionId, submissionTag, status, signature } = actionResultFields(actionResponse);
+
+  onStep?.("Relaying the TEE-signed result on-chain…");
+  const relayTx = await contract.submitCipherRevealResult(data, actionId, submissionTag, status, signature);
+  const relayReceipt = await relayTx.wait();
+
+  return { instructionId, actionResponse, requestReceipt: receipt, relayReceipt };
+}
+
 export { fetchTeeInfo };

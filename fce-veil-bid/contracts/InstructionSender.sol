@@ -51,6 +51,18 @@ contract VeilBidding {
     // forge-lint: disable-next-line(unsafe-typecast)
     bytes32 public constant OP_COMMAND_STEALTH_REVEAL = bytes32("STEALTH_REVEAL");
 
+    /// @notice Operation type for Cipher Listing actions - a skill-based
+    /// challenge, not a bid, so it gets its own OPType rather than being
+    /// folded into OP_TYPE_BID.
+    // forge-lint: disable-next-line(unsafe-typecast)
+    bytes32 public constant OP_TYPE_CIPHER = bytes32("CIPHER");
+
+    /// @notice Command to reveal a Cipher listing: the TEE generates a fresh
+    /// reordering of the word list, decrypts every sealed guess, and picks
+    /// the closest match.
+    // forge-lint: disable-next-line(unsafe-typecast)
+    bytes32 public constant OP_COMMAND_CIPHER_REVEAL = bytes32("CIPHER_REVEAL");
+
     /// @notice Score bounds the TEE's formula operates within (internal/extension/chain.go).
     uint256 public constant MIN_SCORE_THRESHOLD = 5;
     uint256 public constant MAX_SCORE = 100;
@@ -172,6 +184,42 @@ contract VeilBidding {
         bytes[] encryptedTerms;
     }
 
+    /// @notice A Cipher Listing: a skill-based challenge rather than a bid.
+    /// The creator's word list is public (see cipherWords) - only
+    /// participation is invite-gated. Array-typed fields (words, the two
+    /// revealed arrangements) live in separate top-level mappings rather than
+    /// on this struct, since Solidity's auto-generated public getter for a
+    /// mapping silently omits any array-typed struct member.
+    struct CipherListing {
+        address creator;
+        uint64 deadline;
+        bool revealed;
+        address winner;
+        uint8 wordCount; // 12 or 24, validated at creation
+    }
+
+    /// @notice A participant's sealed guess: an on-chain commitment plus an
+    /// ECIES ciphertext only the TEE can decrypt. Same shape as SealedBid.
+    struct SealedGuess {
+        bytes32 guessCommitment; // keccak256(abi.encode(uint8[] arrangement, bytes32 nonce, address guesser))
+        bytes encryptedGuess;    // ECIES ciphertext, TEE-only
+        bool submitted;
+    }
+
+    /// @notice ABI payload of a CIPHER_REVEAL instruction (decoded by the
+    /// TEE). Deliberately does not carry the word strings - the TEE only
+    /// needs wordCount to generate its reordering of index positions; the
+    /// words themselves are already public (see cipherWords), the frontend
+    /// maps words[arrangement[i]] client-side.
+    struct CipherRevealMessage {
+        uint256 listingId;
+        address contractAddr;      // this contract - echoed back so the result binds to it
+        uint8 wordCount;
+        address[] guessers;
+        bytes32[] guessCommitments;
+        bytes[] encryptedGuesses;
+    }
+
     address public owner;
     address public teeAddress;
 
@@ -204,6 +252,25 @@ contract VeilBidding {
     /// on a shared/global counter that would make the id front-runnable.
     mapping(address => uint256) public creatorStealthNonce;
 
+    // --- Cipher listing state ---
+
+    uint256 public cipherListingCount;
+    mapping(uint256 => CipherListing) public cipherListings;
+    mapping(uint256 => string[]) public cipherWords;
+    mapping(uint256 => address[]) public cipherGuessers;
+    mapping(uint256 => mapping(address => SealedGuess)) public cipherSealedGuesses;
+
+    /// @notice Addresses the Cipher listing creator has invited - the sole
+    /// admission control, since there is no score-gated mode for Cipher
+    /// listings (only the participant list, exactly like stealth listings).
+    mapping(uint256 => mapping(address => bool)) public isCipherParticipant;
+
+    /// @notice Set once at reveal: the winner's own submitted guess and the
+    /// TEE's true reordering, both public from that point on. Everyone
+    /// else's guess stays sealed forever.
+    mapping(uint256 => uint8[]) public cipherWinnerArrangement;
+    mapping(uint256 => uint8[]) public cipherTrueArrangement;
+
     event ListingCreated(
         uint256 indexed listingId,
         address indexed creator,
@@ -230,6 +297,16 @@ contract VeilBidding {
     event StealthBidSealed(bytes32 indexed hashedId, address indexed bidder, bytes32 termsCommitment);
     event StealthRevealRequested(bytes32 indexed hashedId, bytes32 instructionId);
     event StealthBidRevealed(bytes32 indexed hashedId, address indexed winner, uint256 winningAmount);
+
+    event CipherListingCreated(
+        uint256 indexed listingId, address indexed creator, uint64 deadline, uint8 wordCount, string[] words
+    );
+    event CipherParticipantsAdded(uint256 indexed listingId, address[] participants);
+    event CipherGuessSealed(uint256 indexed listingId, address indexed guesser, bytes32 guessCommitment);
+    event CipherRevealRequested(uint256 indexed listingId, bytes32 instructionId);
+    event CipherListingRevealed(
+        uint256 indexed listingId, address indexed winner, uint8[] winnerArrangement, uint8[] trueArrangement
+    );
 
     modifier onlyOwner() {
         require(msg.sender == owner, "not owner");
@@ -719,6 +796,163 @@ contract VeilBidding {
         emit StealthBidRevealed(hashedId, winner, winningAmount);
     }
 
+    // --- Cipher listing lifecycle ---
+
+    /// @notice Create a Cipher listing: a skill-based challenge, not a bid.
+    /// The word list is public (unlike stealth) but always invite-gated
+    /// (unlike standard, no score-gated mode exists here) - at least one
+    /// initial participant is required. The TEE is never invoked at creation
+    /// - it generates its reordering fresh at reveal time.
+    function createCipherListing(
+        string[] calldata _words,
+        uint64 _deadline,
+        address[] calldata _initialParticipants
+    ) external returns (uint256 listingId) {
+        require(_deadline > block.timestamp, "deadline must be future");
+        require(_words.length == 12 || _words.length == 24, "word list must be 12 or 24 words");
+        require(_initialParticipants.length > 0, "cipher listings need at least one participant");
+
+        listingId = ++cipherListingCount;
+        cipherListings[listingId] = CipherListing({
+            creator: msg.sender,
+            deadline: _deadline,
+            revealed: false,
+            winner: address(0),
+            wordCount: uint8(_words.length)
+        });
+        cipherWords[listingId] = _words;
+
+        emit CipherListingCreated(listingId, msg.sender, _deadline, uint8(_words.length), _words);
+
+        _addCipherParticipants(listingId, _initialParticipants);
+    }
+
+    /// @notice Invite additional addresses to a Cipher listing - the entire
+    /// access control (participation only; the word list itself is already
+    /// public). Creator-only, and only while guessing is still open.
+    function addCipherParticipants(uint256 _listingId, address[] calldata _participants) external {
+        CipherListing storage listing = cipherListings[_listingId];
+        require(listing.deadline != 0, "unknown listing");
+        require(msg.sender == listing.creator, "not listing creator");
+        require(block.timestamp < listing.deadline, "guessing closed");
+
+        _addCipherParticipants(_listingId, _participants);
+    }
+
+    function _addCipherParticipants(uint256 _listingId, address[] calldata _participants) internal {
+        for (uint256 i = 0; i < _participants.length; i++) {
+            isCipherParticipant[_listingId][_participants[i]] = true;
+        }
+        emit CipherParticipantsAdded(_listingId, _participants);
+    }
+
+    /// @notice Submit a sealed guess: an on-chain commitment plus an ECIES
+    /// ciphertext only the TEE can decrypt. Pure on-chain bookkeeping - the
+    /// TEE only decrypts and scores at reveal time. Only invited participants
+    /// may guess, once each.
+    function submitCipherGuess(uint256 _listingId, bytes32 _guessCommitment, bytes calldata _encryptedGuess)
+        external
+    {
+        CipherListing storage listing = cipherListings[_listingId];
+        require(listing.deadline != 0, "unknown listing");
+        require(block.timestamp < listing.deadline, "guessing closed");
+        require(isCipherParticipant[_listingId][msg.sender], "not a participant of this cipher listing");
+        require(!cipherSealedGuesses[_listingId][msg.sender].submitted, "already sealed");
+
+        cipherSealedGuesses[_listingId][msg.sender] =
+            SealedGuess({ guessCommitment: _guessCommitment, encryptedGuess: _encryptedGuess, submitted: true });
+        cipherGuessers[_listingId].push(msg.sender);
+
+        emit CipherGuessSealed(_listingId, msg.sender, _guessCommitment);
+    }
+
+    /// @notice Route every sealed guess for this Cipher listing to the TEE:
+    /// it generates a fresh reordering of the word list, decrypts every
+    /// guess, and picks the closest match in one instruction.
+    /// @dev Payable - forwards the FCC instruction fee to the registry.
+    function requestCipherReveal(uint256 _listingId) external payable returns (bytes32 instructionId) {
+        CipherListing storage listing = cipherListings[_listingId];
+        require(listing.deadline != 0, "unknown listing");
+        require(block.timestamp >= listing.deadline, "deadline not reached");
+        require(!listing.revealed, "already revealed");
+
+        address[] memory guesserList = cipherGuessers[_listingId];
+        bytes32[] memory commitments = new bytes32[](guesserList.length);
+        bytes[] memory ciphertexts = new bytes[](guesserList.length);
+        for (uint256 i = 0; i < guesserList.length; i++) {
+            SealedGuess storage sg = cipherSealedGuesses[_listingId][guesserList[i]];
+            commitments[i] = sg.guessCommitment;
+            ciphertexts[i] = sg.encryptedGuess;
+        }
+
+        bytes memory message = abi.encode(
+            CipherRevealMessage({
+                listingId: _listingId,
+                contractAddr: address(this),
+                wordCount: listing.wordCount,
+                guessers: guesserList,
+                guessCommitments: commitments,
+                encryptedGuesses: ciphertexts
+            })
+        );
+
+        address[] memory teeIds = TEE_MACHINE_REGISTRY.getRandomTeeIds(_getExtensionId(), 1);
+        address[] memory cosigners = new address[](0);
+
+        ITeeExtensionRegistry.TeeInstructionParams memory params = ITeeExtensionRegistry.TeeInstructionParams({
+            opType: OP_TYPE_CIPHER,
+            opCommand: OP_COMMAND_CIPHER_REVEAL,
+            message: message,
+            cosigners: cosigners,
+            cosignersThreshold: 0,
+            claimBackAddress: msg.sender
+        });
+
+        instructionId = TEE_EXTENSION_REGISTRY.sendInstructions{value: msg.value}(teeIds, params);
+        emit CipherRevealRequested(_listingId, instructionId);
+    }
+
+    /// @notice Finalize a Cipher listing with a TEE-signed reveal result.
+    /// Mirrors submitRevealResult's signature-verification scheme exactly.
+    /// _resultData is abi.encode(uint256 listingId, address contractAddr,
+    /// address winner, uint8[] winnerArrangement, uint8[] trueArrangement) -
+    /// unlike a bid reveal, no match-count field is carried on-chain; the
+    /// frontend diffs the two revealed arrangements itself.
+    function submitCipherRevealResult(
+        bytes calldata _resultData,
+        bytes32 _actionId,
+        string calldata _submissionTag,
+        uint8 _status,
+        bytes calldata _signature
+    ) external {
+        require(teeAddress != address(0), "TEE address not set");
+        require(_status == 1, "TEE reported failure");
+
+        bytes32 resultHash = keccak256(
+            abi.encodePacked(keccak256(_resultData), _actionId, keccak256(bytes(_submissionTag)), _status)
+        );
+        bytes32 payloadHash = keccak256(abi.encode(TEE_ACTION_RESULT_PREFIX, block.chainid, resultHash));
+
+        address signer = _recover(_ethSigned(payloadHash), _signature);
+        require(signer == teeAddress, "bad TEE signature");
+
+        (uint256 listingId, address contractAddr, address winner, uint8[] memory winnerArrangement, uint8[] memory trueArrangement)
+        = abi.decode(_resultData, (uint256, address, address, uint8[], uint8[]));
+        require(contractAddr == address(this), "reveal not for this contract");
+
+        CipherListing storage listing = cipherListings[listingId];
+        require(listing.deadline != 0, "unknown listing");
+        require(!listing.revealed, "already revealed");
+        require(block.timestamp >= listing.deadline, "deadline not reached");
+
+        listing.revealed = true;
+        listing.winner = winner;
+        cipherWinnerArrangement[listingId] = winnerArrangement;
+        cipherTrueArrangement[listingId] = trueArrangement;
+
+        emit CipherListingRevealed(listingId, winner, winnerArrangement, trueArrangement);
+    }
+
     // --- Views ---
 
     function getBidders(uint256 _listingId) external view returns (address[] memory) {
@@ -727,6 +961,22 @@ contract VeilBidding {
 
     function getStealthBidders(bytes32 _hashedId) external view returns (address[] memory) {
         return stealthBidders[_hashedId];
+    }
+
+    function getCipherWords(uint256 _listingId) external view returns (string[] memory) {
+        return cipherWords[_listingId];
+    }
+
+    function getCipherGuessers(uint256 _listingId) external view returns (address[] memory) {
+        return cipherGuessers[_listingId];
+    }
+
+    function getCipherWinnerArrangement(uint256 _listingId) external view returns (uint8[] memory) {
+        return cipherWinnerArrangement[_listingId];
+    }
+
+    function getCipherTrueArrangement(uint256 _listingId) external view returns (uint8[] memory) {
+        return cipherTrueArrangement[_listingId];
     }
 
     /// @notice Convenience getter so off-chain callers (the TEE's score

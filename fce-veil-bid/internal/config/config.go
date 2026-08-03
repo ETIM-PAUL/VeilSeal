@@ -17,6 +17,9 @@ const (
 	OPCommandMyScore       = "MY_SCORE"
 	OPCommandStealthReveal = "STEALTH_REVEAL"
 
+	OPTypeCipher          = "CIPHER"
+	OPCommandCipherReveal = "CIPHER_REVEAL"
+
 	TimeoutShutdown = 5 * time.Second
 )
 

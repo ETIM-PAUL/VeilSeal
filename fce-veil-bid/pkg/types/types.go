@@ -97,6 +97,43 @@ type StealthRevealResult struct {
 	WinningAmount *big.Int
 }
 
+// CipherRevealRequest is the ABI-decoded payload of a CIPHER_REVEAL
+// instruction. Matches Solidity `struct CipherRevealMessage { uint256 listingId;
+// address contractAddr; uint8 wordCount; address[] guessers; bytes32[] guessCommitments;
+// bytes[] encryptedGuesses; }`. Deliberately carries no word strings - the TEE
+// only needs wordCount to generate its reordering of index positions.
+type CipherRevealRequest struct {
+	ListingId        *big.Int         `json:"listingId"`
+	ContractAddr     common.Address   `json:"contractAddr"`
+	WordCount        uint8            `json:"wordCount"`
+	Guessers         []common.Address `json:"guessers"`
+	GuessCommitments [][32]byte       `json:"guessCommitments"`
+	EncryptedGuesses [][]byte         `json:"encryptedGuesses"`
+}
+
+// SealedGuess is the plaintext each guesser ECIES-encrypts client-side before
+// calling submitCipherGuess. Not ABI-encoded - a plain JSON object, mirroring
+// SealedTerms. Arrangement[i] is the original word-index the guesser placed
+// at position i, matching the on-chain encoding of winnerArrangement/
+// trueArrangement exactly (no translation layer needed).
+type SealedGuess struct {
+	Arrangement []uint8        `json:"arrangement"`
+	Nonce       common.Hash    `json:"nonce"`
+	Guesser     common.Address `json:"guesser"`
+}
+
+// CipherRevealResult is the decoded form of the CIPHER_REVEAL result payload
+// consumed by submitCipherRevealResult on-chain. Unlike RevealResult, there
+// is no match-count field - the frontend diffs WinnerArrangement against
+// TrueArrangement itself.
+type CipherRevealResult struct {
+	ListingId         *big.Int
+	ContractAddr      common.Address
+	Winner            common.Address
+	WinnerArrangement []uint8
+	TrueArrangement   []uint8
+}
+
 // RevealMessageArg describes the ABI layout of RevealMessage from the Solidity contract.
 var RevealMessageArg abi.Argument
 
@@ -129,6 +166,18 @@ var StealthRevealMessageArg abi.Argument
 // StealthRevealResultArgs is the flat ABI tuple the TEE packs into ActionResult.Data for
 // STEALTH_REVEAL, matching submitStealthRevealResult's abi.decode(data, (bytes32, address, address, uint256)).
 var StealthRevealResultArgs abi.Arguments
+
+// CipherRevealMessageArg describes the ABI layout of CipherRevealMessage from the Solidity contract.
+var CipherRevealMessageArg abi.Argument
+
+// CipherRevealResultArgs is the flat ABI tuple the TEE packs into ActionResult.Data for
+// CIPHER_REVEAL, matching submitCipherRevealResult's
+// abi.decode(data, (uint256, address, address, uint8[], uint8[])).
+var CipherRevealResultArgs abi.Arguments
+
+// GuessCommitmentArgs is the flat ABI tuple used for the on-chain guess
+// commitment: keccak256(abi.encode(arrangement, nonce, guesser)).
+var GuessCommitmentArgs abi.Arguments
 
 func init() {
 	revealTy, _ := abi.NewType("tuple", "", []abi.ArgumentMarshaling{
@@ -196,6 +245,32 @@ func init() {
 		{Type: addressTy},
 		{Type: uintTy},
 	}
+
+	uint8ArrTy, _ := abi.NewType("uint8[]", "", nil)
+
+	cipherRevealTy, _ := abi.NewType("tuple", "", []abi.ArgumentMarshaling{
+		{Name: "listingId", Type: "uint256"},
+		{Name: "contractAddr", Type: "address"},
+		{Name: "wordCount", Type: "uint8"},
+		{Name: "guessers", Type: "address[]"},
+		{Name: "guessCommitments", Type: "bytes32[]"},
+		{Name: "encryptedGuesses", Type: "bytes[]"},
+	})
+	CipherRevealMessageArg = abi.Argument{Type: cipherRevealTy}
+
+	CipherRevealResultArgs = abi.Arguments{
+		{Type: uintTy},
+		{Type: addressTy},
+		{Type: addressTy},
+		{Type: uint8ArrTy},
+		{Type: uint8ArrTy},
+	}
+
+	GuessCommitmentArgs = abi.Arguments{
+		{Type: uint8ArrTy},
+		{Type: bytes32Ty},
+		{Type: addressTy},
+	}
 }
 
 // TermsCommitment recomputes keccak256(abi.encode(amount, nonce, bidder)) so
@@ -203,6 +278,17 @@ func init() {
 // commitment the bidder published at seal time.
 func TermsCommitment(t SealedTerms) (common.Hash, error) {
 	encoded, err := TermsCommitmentArgs.Pack(t.Amount, [32]byte(t.Nonce), t.Bidder)
+	if err != nil {
+		return common.Hash{}, err
+	}
+	return common.BytesToHash(crypto.Keccak256(encoded)), nil
+}
+
+// GuessCommitment recomputes keccak256(abi.encode(arrangement, nonce, guesser))
+// so the extension can verify a decrypted SealedGuess matches the on-chain
+// commitment the guesser published at seal time.
+func GuessCommitment(g SealedGuess) (common.Hash, error) {
+	encoded, err := GuessCommitmentArgs.Pack(g.Arrangement, [32]byte(g.Nonce), g.Guesser)
 	if err != nil {
 		return common.Hash{}, err
 	}

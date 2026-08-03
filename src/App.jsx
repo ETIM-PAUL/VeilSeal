@@ -5,6 +5,7 @@ import Routes from "./routes/Routes";
 import AppLayout from "./layout/AppLayout";
 import { WalletProvider } from "./context/WalletContext";
 import { BidsProvider } from "./context/BidsContext";
+import { CipherListingsProvider } from "./context/CipherListingsContext";
 
 
 export default function App(){
@@ -16,11 +17,15 @@ export default function App(){
 
         <BidsProvider>
 
-          <AppLayout>
+          <CipherListingsProvider>
 
-            <Routes />
+            <AppLayout>
 
-          </AppLayout>
+              <Routes />
+
+            </AppLayout>
+
+          </CipherListingsProvider>
 
         </BidsProvider>
 

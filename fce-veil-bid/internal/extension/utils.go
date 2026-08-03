@@ -37,6 +37,15 @@ func (e *Extension) actionHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if df, async := cipherDataFixed(action); async {
+		go e.finishActionAsync(action)
+		body, _ := json.Marshal(inProgressResult(action, df))
+		logger.Infof("deferring action %s (CIPHER_REVEAL - may decrypt several sealed guesses)", action.Data.ID)
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write(body)
+		return
+	}
+
 	status, body := e.processAction(action)
 
 	logger.Infof("sending action result, ID: %s, status: %d, log: %s", action.Data.ID, status, getLogFromBody(body))
@@ -62,6 +71,26 @@ func bidDataFixed(action teetypes.Action) (*instruction.DataFixed, bool) {
 		teeutils.ToHash(config.OPCommandScore),
 		teeutils.ToHash(config.OPCommandMyScore),
 		teeutils.ToHash(config.OPCommandStealthReveal):
+		return df, true
+	default:
+		return df, false
+	}
+}
+
+// cipherDataFixed returns parsed instruction data when the action is a
+// CIPHER/CIPHER_REVEAL - deferred asynchronously for the same reason
+// bidDataFixed's REVEAL case is: decrypting several sealed guesses risks
+// exceeding tee-node's 2s synchronous POST timeout.
+func cipherDataFixed(action teetypes.Action) (*instruction.DataFixed, bool) {
+	df, err := processorutils.Parse[instruction.DataFixed](action.Data.Message)
+	if err != nil {
+		return nil, false
+	}
+	if df.OPType != teeutils.ToHash(config.OPTypeCipher) {
+		return nil, false
+	}
+	switch df.OPCommand {
+	case teeutils.ToHash(config.OPCommandCipherReveal):
 		return df, true
 	default:
 		return df, false

@@ -78,6 +78,22 @@ export async function encryptStealthDetails({ title, description, itemType, ipfs
   return hexlify(ciphertext);
 }
 
+/// Mirrors: keccak256(abi.encode(uint8[] arrangement, bytes32 nonce, address guesser))
+export function computeCipherGuessCommitment({ arrangement, nonce, guesser }) {
+  const encoded = abiCoder.encode(["uint8[]", "bytes32", "address"], [arrangement, nonce, guesser]);
+  return keccak256(encoded);
+}
+
+/// ECIES-encrypts a Cipher listing guess (a permutation of word-indices
+/// predicting the TEE's reordering) so only the TEE can decrypt it. `arrangement`
+/// is a plain array of small integers, so JSON.stringify is fine here (unlike
+/// encryptBidTerms's bare-BigInt `amount`, nothing here needs manual construction).
+export async function encryptCipherGuess({ arrangement, nonce, guesser }, teePublicKey) {
+  const plaintext = JSON.stringify({ arrangement, nonce, guesser });
+  const ciphertext = await eciesEncryptForTee(teePublicKey, new TextEncoder().encode(plaintext));
+  return hexlify(ciphertext);
+}
+
 /// The TEE-side counterpart - in production this only ever runs inside the
 /// attested enclave. Included here so the "simulate TEE settlement" demo
 /// flow can actually decrypt real ciphertexts produced by real bidders.

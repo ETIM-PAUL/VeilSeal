@@ -135,10 +135,32 @@ func (e *Extension) processAction(action teetypes.Action) (int, []byte) {
 	case dataFixed.OPType == teeutils.ToHash(config.OPTypeBid):
 		return e.processBid(action, dataFixed)
 
+	case dataFixed.OPType == teeutils.ToHash(config.OPTypeCipher):
+		return e.processCipher(action, dataFixed)
+
 	default:
 		return http.StatusNotImplemented, []byte(fmt.Sprintf(
-			"unsupported op type: received %s, expected %s (%s)",
-			dataFixed.OPType.Hex(), teeutils.ToHash(config.OPTypeBid).Hex(), config.OPTypeBid,
+			"unsupported op type: received %s, expected %s (%s) or %s (%s)",
+			dataFixed.OPType.Hex(),
+			teeutils.ToHash(config.OPTypeBid).Hex(), config.OPTypeBid,
+			teeutils.ToHash(config.OPTypeCipher).Hex(), config.OPTypeCipher,
+		))
+	}
+}
+
+// processCipher routes CIPHER instructions by OPCommand (currently just CIPHER_REVEAL).
+func (e *Extension) processCipher(action teetypes.Action, df *instruction.DataFixed) (int, []byte) {
+	switch {
+	case df.OPCommand == teeutils.ToHash(config.OPCommandCipherReveal):
+		ar := e.processCipherReveal(action, df)
+		b, _ := json.Marshal(ar)
+		return http.StatusOK, b
+
+	default:
+		return http.StatusNotImplemented, []byte(fmt.Sprintf(
+			"unsupported op command: received %s, expected %s (%s)",
+			df.OPCommand.Hex(),
+			teeutils.ToHash(config.OPCommandCipherReveal).Hex(), config.OPCommandCipherReveal,
 		))
 	}
 }
@@ -416,6 +438,101 @@ func (e *Extension) processStealthBidReveal(action teetypes.Action, df *instruct
 		types.StealthRevealResultArgs.Pack(req.HashedId, req.ContractAddr, winner, big.NewInt(winningAmount))
 	if err != nil {
 		return buildResult(action, df, nil, 0, fmt.Errorf("ABI encode stealth reveal result: %v", err))
+	}
+
+	return buildResult(action, df, encoded, 1, nil)
+}
+
+// processCipherReveal ABI-decodes the CipherRevealMessage, generates a fresh
+// random reordering of the word list (guaranteed to differ from the
+// creator's original order), decrypts every sealed guess's ECIES ciphertext
+// via the TEE node's /decrypt endpoint, verifies each decrypted guess
+// against its on-chain commitment, and returns the closest match - the
+// participant with the most position-matches against the true reordering.
+// Ties go to whichever guesser reached that score first (strict `>`, not
+// `>=`, over guessers in submission order - the same tiebreak idiom
+// processBidReveal already uses for "highest bid wins"). Unlike a bid
+// reveal, both the winner's own arrangement and the true arrangement are
+// ABI-encoded into the result - no match-count field; the frontend diffs
+// the two itself. Losing guesses never leave this function.
+func (e *Extension) processCipherReveal(action teetypes.Action, df *instruction.DataFixed) teetypes.ActionResult {
+	if len(df.OriginalMessage) == 0 {
+		return buildResult(action, df, nil, 0, fmt.Errorf("originalMessage is empty"))
+	}
+
+	req, err := structs.Decode[types.CipherRevealRequest](types.CipherRevealMessageArg, df.OriginalMessage)
+	if err != nil {
+		return buildResult(action, df, nil, 0, fmt.Errorf("decoding cipher reveal request: %v", err))
+	}
+
+	n := len(req.Guessers)
+	if n != len(req.GuessCommitments) || n != len(req.EncryptedGuesses) {
+		return buildResult(action, df, nil, 0, fmt.Errorf("mismatched guessers/commitments/ciphertexts lengths"))
+	}
+	if n == 0 {
+		return buildResult(action, df, nil, 0, fmt.Errorf("no sealed guesses to reveal"))
+	}
+
+	trueArrangement, err := randomDerangement(int(req.WordCount))
+	if err != nil {
+		return buildResult(action, df, nil, 0, fmt.Errorf("generating true arrangement: %v", err))
+	}
+
+	var (
+		winner            = req.Guessers[0]
+		winnerArrangement []uint8
+		bestScore         = -1
+		found             bool
+	)
+
+	for i := 0; i < n; i++ {
+		plaintext, err := decryptViaNode(e.signPort, req.EncryptedGuesses[i])
+		if err != nil {
+			// A single bad/corrupt ciphertext shouldn't fail the whole reveal -
+			// skip it and continue with the rest.
+			continue
+		}
+
+		var guess types.SealedGuess
+		if err := json.Unmarshal(plaintext, &guess); err != nil {
+			continue
+		}
+		if len(guess.Arrangement) != len(trueArrangement) {
+			continue
+		}
+
+		commitment, err := types.GuessCommitment(guess)
+		if err != nil || commitment != req.GuessCommitments[i] {
+			// Decrypted guess doesn't match what was committed on-chain - reject.
+			continue
+		}
+		if guess.Guesser != req.Guessers[i] {
+			continue
+		}
+
+		score := 0
+		for pos := range trueArrangement {
+			if guess.Arrangement[pos] == trueArrangement[pos] {
+				score++
+			}
+		}
+
+		if !found || score > bestScore {
+			bestScore = score
+			winner = req.Guessers[i]
+			winnerArrangement = guess.Arrangement
+			found = true
+		}
+	}
+
+	if !found {
+		return buildResult(action, df, nil, 0, fmt.Errorf("no valid sealed guesses after decryption"))
+	}
+
+	encoded, err :=
+		types.CipherRevealResultArgs.Pack(req.ListingId, req.ContractAddr, winner, winnerArrangement, trueArrangement)
+	if err != nil {
+		return buildResult(action, df, nil, 0, fmt.Errorf("ABI encode cipher reveal result: %v", err))
 	}
 
 	return buildResult(action, df, encoded, 1, nil)

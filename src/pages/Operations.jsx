@@ -1,20 +1,51 @@
-import { useMemo, useState } from "react";
-import { SimpleGrid, Stack, Text, Title } from "@mantine/core";
-import { LuActivity, LuHourglass, LuCheckCheck, LuOctagonAlert } from "react-icons/lu";
+import { useEffect, useMemo, useState } from "react";
+import { SimpleGrid, Stack, Text, Title, Loader } from "@mantine/core";
+import { LuActivity, LuHourglass, LuCheckCheck } from "react-icons/lu";
 
 import StatCard from "../components/dashboard/StatCard";
+import StatCardSkeleton from "../components/common/StatCardSkeleton";
 import OperationsFilters from "../components/operations/OperationsFilters";
 import OperationsTable from "../components/operations/OperationsTable";
 import OperationDrawer from "../components/operations/OperationDrawer";
 import EmptyState from "../components/common/EmptyState";
 
+import { useBids } from "../context/useBids";
+import { fetchBidActivity } from "../contracts/VeilBidding";
 import { buildOperationsFeed } from "../utils/operations";
 
-const PENDING_STATUSES = ["Queued", "Relayed", "Executing", "Sealed"];
-const RESOLVED_STATUSES = ["Settled", "Won", "Lost", "Withdrawn"];
+const PENDING_STATUSES = ["Sealed"];
+const RESOLVED_STATUSES = ["Won", "Lost", "Withdrawn"];
 
 export default function Operations() {
-  const feed = useMemo(() => buildOperationsFeed(), []);
+  // Listings/participants come from BidsContext (already fetched for the
+  // Listings page); activity (real tx hashes + timestamps for each sealed/
+  // cancelled bid) is fetched once here - see fetchBidActivity.
+  const { bids, loading: bidsLoading } = useBids();
+  const [activity, setActivity] = useState([]);
+  const [activityLoading, setActivityLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    (async () => {
+      setActivityLoading(true);
+      try {
+        const events = await fetchBidActivity();
+        if (!cancelled) setActivity(events);
+      } catch {
+        if (!cancelled) setActivity([]);
+      } finally {
+        if (!cancelled) setActivityLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const loading = bidsLoading || activityLoading;
+  const feed = useMemo(() => buildOperationsFeed(bids, activity), [bids, activity]);
 
   const [search, setSearch] = useState("");
   const [type, setType] = useState("All");
@@ -35,7 +66,6 @@ export default function Operations() {
       total: feed.length,
       pending: feed.filter((op) => PENDING_STATUSES.includes(op.status)).length,
       resolved: feed.filter((op) => RESOLVED_STATUSES.includes(op.status)).length,
-      failed: feed.filter((op) => op.status === "Failed").length,
     }),
     [feed]
   );
@@ -54,16 +84,24 @@ export default function Operations() {
           <Title order={2}>Operations</Title>
 
           <Text className="caption" mt={4}>
-            Every confidential operation - transfers and sealed bids - processed through Flare Confidential Compute.
+            Every sealed bid, reveal, and withdrawal, sourced directly from on-chain activity
+            processed through Flare Confidential Compute.
           </Text>
         </div>
 
-        <SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }}>
-          <StatCard title="Total Operations" value={stats.total} icon={LuActivity} />
-          <StatCard title="Pending" value={stats.pending} icon={LuHourglass} description="Queued, relayed, executing, or sealed" />
-          <StatCard title="Resolved" value={stats.resolved} icon={LuCheckCheck} description="Settled, won, lost, or withdrawn" />
-          <StatCard title="Failed" value={stats.failed} icon={LuOctagonAlert} />
-        </SimpleGrid>
+        {loading ? (
+          <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }}>
+            {Array.from({ length: 3 }).map((_, i) => (
+              <StatCardSkeleton key={i} />
+            ))}
+          </SimpleGrid>
+        ) : (
+          <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }}>
+            <StatCard title="Total Operations" value={stats.total} icon={LuActivity} />
+            <StatCard title="Pending" value={stats.pending} icon={LuHourglass} description="Sealed, awaiting reveal" />
+            <StatCard title="Resolved" value={stats.resolved} icon={LuCheckCheck} description="Won, lost, or withdrawn" />
+          </SimpleGrid>
+        )}
 
         <OperationsFilters
           search={search}
@@ -75,12 +113,16 @@ export default function Operations() {
           statusOptions={statusOptions}
         />
 
-        {filtered.length === 0 ? (
+        {loading ? (
+          <div className="panel" style={{ padding: 40, textAlign: "center" }}>
+            <Loader size="sm" />
+          </div>
+        ) : filtered.length === 0 ? (
           <div className="panel">
             <EmptyState
               icon={LuActivity}
               title="No operations found"
-              description="Try adjusting your filters - confidential operations from transfers and bids will appear here."
+              description="Try adjusting your filters - sealed bids, reveals, and withdrawals will appear here."
             />
           </div>
         ) : (

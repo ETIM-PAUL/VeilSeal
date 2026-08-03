@@ -216,6 +216,81 @@ export async function fetchAllListings() {
   }));
 }
 
+// Scoped by contract address + schema version, same reasoning as
+// LISTINGS_CACHE_KEY.
+const BID_ACTIVITY_CACHE_KEY = `veilpay:bid-activity-cache:v1:${VEIL_BIDDING_ADDRESS}`;
+
+function loadBidActivityCache() {
+  try {
+    return JSON.parse(localStorage.getItem(BID_ACTIVITY_CACHE_KEY)) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function saveBidActivityCache(cache) {
+  localStorage.setItem(BID_ACTIVITY_CACHE_KEY, JSON.stringify(cache));
+}
+
+/// Discovers every sealed-bid activity event ever emitted for standard
+/// listings - BidSealed (a bid was committed) and BidCancelled (withdrawn
+/// before reveal) - each with a real tx hash and block timestamp. The
+/// Operations page derives its feed from this plus the already-fetched
+/// listings/participants state (see utils/operations.js) instead of mock
+/// data. Cached and chunked the same way fetchAllListings is, for the same
+/// reason (Coston2's public RPC caps eth_getLogs at 30 blocks per call).
+///
+/// Stealth listing activity is deliberately excluded - stealth listings are
+/// meant to be undiscoverable without their hashedId, and surfacing "who
+/// bid on what" in a globally-visible feed would defeat that even without
+/// showing the listing's content.
+export async function fetchBidActivity() {
+  const contract = getReadOnlyContract();
+  const provider = getReadOnlyProvider();
+  const currentBlock = await provider.getBlockNumber();
+
+  const cache = loadBidActivityCache();
+  const fromBlock = cache && cache.lastBlock >= DEPLOY_BLOCK ? cache.lastBlock + 1 : DEPLOY_BLOCK;
+  const cachedEvents = cache?.events ?? [];
+
+  let newEvents = [];
+  if (fromBlock <= currentBlock) {
+    const [sealed, cancelled] = await Promise.all([
+      queryLogsChunked(contract, contract.filters.BidSealed(), fromBlock, currentBlock),
+      queryLogsChunked(contract, contract.filters.BidCancelled(), fromBlock, currentBlock),
+    ]);
+
+    const raw = [
+      ...sealed.map((e) => ({
+        kind: "Sealed",
+        listingId: e.args.listingId.toString(),
+        bidder: e.args.bidder,
+        txHash: e.transactionHash,
+        blockNumber: e.blockNumber,
+      })),
+      ...cancelled.map((e) => ({
+        kind: "Cancelled",
+        listingId: e.args.listingId.toString(),
+        bidder: e.args.bidder,
+        txHash: e.transactionHash,
+        blockNumber: e.blockNumber,
+      })),
+    ];
+
+    // Resolve each new event's block timestamp, deduped so a block with
+    // several events in it only costs one RPC call.
+    const uniqueBlocks = [...new Set(raw.map((e) => e.blockNumber))];
+    const blocks = await Promise.all(uniqueBlocks.map((n) => provider.getBlock(n)));
+    const timestampByBlock = new Map(uniqueBlocks.map((n, i) => [n, Number(blocks[i]?.timestamp ?? 0)]));
+    newEvents = raw.map((e) => ({ ...e, timestamp: timestampByBlock.get(e.blockNumber) ?? 0 }));
+  }
+
+  const merged = [...cachedEvents, ...newEvents];
+  saveBidActivityCache({ lastBlock: currentBlock, events: merged });
+
+  return merged;
+}
+
 /// Every bidder address that sealed a bid on a listing.
 export async function fetchBidders(listingId) {
   const contract = getReadOnlyContract();

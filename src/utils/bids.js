@@ -83,3 +83,19 @@ export function formatDeadline(deadline) {
     timeStyle: "short",
   });
 }
+
+/// Formats a past timestamp as "Xm/h/d ago" - the Operations feed's twin to
+/// formatCountdown, which does the same relative math for future deadlines.
+export function formatRelativeTime(date) {
+  const diff = Date.now() - new Date(date).getTime();
+  if (diff < 60000) return "Just now";
+
+  const mins = Math.floor(diff / 60000);
+  if (mins < 60) return `${mins}m ago`;
+
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+}

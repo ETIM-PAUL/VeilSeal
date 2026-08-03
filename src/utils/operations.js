@@ -1,6 +1,4 @@
-import { transfers } from "../data/transfers";
-import { bids } from "../data/bids";
-import { getBidStatus, getWinner } from "./bids";
+import { isRevealed, resolveWinner, formatRelativeTime } from "./bids";
 
 export const OPERATION_STEPS = [
   "Wallet Signed",
@@ -10,18 +8,13 @@ export const OPERATION_STEPS = [
   "Attestation Verified",
 ];
 
-// Maps a mock status to how far the 5-step pipeline above has progressed.
-// `current` is the index of the step still in progress (everything before
-// it renders as complete); Settled operations complete every step.
+// Maps a real on-chain bid status to how far the 5-step pipeline above has
+// progressed. `current` is the index of the step still in progress
+// (everything before it renders as complete); resolved statuses complete
+// every step. Sealed bids sit in the TEE, held confidentially until the
+// deadline reveals them - Won/Lost only exist once that reveal has run;
+// Withdrawn means the bidder cancelled before ever reaching reveal.
 const STEP_BY_STATUS = {
-  Queued: 2,
-  Relayed: 3,
-  Executing: 3,
-  Attested: 5,
-  Settled: 6,
-  Failed: 3,
-  // Sealed bids sit in TEE, held confidentially until the deadline reveals
-  // them - the other three outcomes only exist once that reveal has run.
   Sealed: 3,
   Won: 6,
   Lost: 6,
@@ -31,58 +24,76 @@ const STEP_BY_STATUS = {
 export function getOperationProgress(operation) {
   return {
     current: STEP_BY_STATUS[operation.status] ?? 0,
-    failed: operation.status === "Failed",
+    failed: false,
   };
 }
 
-export function finalStepLabel(type) {
-  return type === "Transfer" ? "Transfer Completed" : "Bid Resolved";
+export function finalStepLabel(status) {
+  return status === "Withdrawn" ? "Bid Withdrawn" : "Bid Resolved";
 }
 
-function mockTxHash() {
-  const hex = () => Math.floor(Math.random() * 16).toString(16);
-  const segment = (len) => Array.from({ length: len }, hex).join("");
-  return `0x${segment(4)}...${segment(4)}`;
-}
+/// Builds the Operations feed entirely from real on-chain data - no mock
+/// data anywhere.
+/// @param bids BidsContext's already-fetched listings (creator/deadline/
+///   revealed/winner/winningAmount/participants) - see BidsContext.jsx.
+/// @param activity fetchBidActivity()'s BidSealed/BidCancelled event log
+///   (real tx hashes and block timestamps) - see contracts/VeilBidding.js.
+///   Stealth listing bids are deliberately excluded from both inputs - see
+///   fetchBidActivity's comment on why.
+export function buildOperationsFeed(bids, activity) {
+  const bidsById = new Map(bids.map((b) => [b.onChainListingId, b]));
+  const sealedByKey = new Map(
+    activity.filter((e) => e.kind === "Sealed").map((e) => [`${e.listingId}:${e.bidder.toLowerCase()}`, e])
+  );
 
-export function buildOperationsFeed() {
-  const transferOps = transfers.map((item) => ({
-    id: `transfer-${item.id}`,
-    type: "Transfer",
-    party: item.recipient,
-    wallet: item.recipient,
-    amount: item.amount,
-    token: item.token,
-    status: item.status,
-    time: item.createdAt,
-    txHash: item.txHash,
-  }));
-
+  // getBidders() (and so BidsContext's participants) only ever reflects
+  // currently-active bids - cancelSealedBid removes the bidder from it
+  // entirely, so a withdrawn bid has to be reconstructed from its
+  // BidCancelled event instead of from `bids`.
   const bidOps = bids.flatMap((bid) => {
-    const bidStatus = getBidStatus(bid);
-    const winner = bidStatus === "Closed" ? getWinner(bid) : null;
+    const revealed = isRevealed(bid);
+    const winner = revealed ? resolveWinner(bid) : null;
 
     return bid.participants.map((p) => {
+      const sealedEvent = sealedByKey.get(`${bid.onChainListingId}:${p.wallet.toLowerCase()}`);
+
       let status = "Sealed";
-      if (bidStatus === "Closed") {
-        if (p.withdrawn) status = "Withdrawn";
-        else if (winner && p.id === winner.id && p.wallet === winner.wallet) status = "Won";
-        else status = "Lost";
+      let amount = 0;
+      if (revealed && winner) {
+        const isWinner = p.wallet.toLowerCase() === winner.wallet.toLowerCase();
+        status = isWinner ? "Won" : "Lost";
+        // Losing amounts are never revealed by the TEE, on-chain or
+        // otherwise - only the winner's amount is ever known here.
+        if (isWinner) amount = winner.amount;
       }
 
       return {
-        id: `bid-${bid.id}-${p.id}`,
+        id: `bid-${bid.onChainListingId}-${p.wallet}`,
         type: "Bid",
         party: bid.title,
         wallet: p.wallet,
-        amount: p.amount,
+        amount,
         token: bid.token,
         status,
-        time: p.submittedAt,
-        txHash: mockTxHash(),
+        time: sealedEvent ? formatRelativeTime(sealedEvent.timestamp * 1000) : "On-chain",
+        txHash: sealedEvent?.txHash ?? null,
       };
     });
   });
 
-  return [...transferOps, ...bidOps];
+  const withdrawnOps = activity
+    .filter((e) => e.kind === "Cancelled")
+    .map((e) => ({
+      id: `bid-${e.listingId}-${e.bidder}-withdrawn`,
+      type: "Bid",
+      party: bidsById.get(e.listingId)?.title ?? `Listing #${e.listingId}`,
+      wallet: e.bidder,
+      amount: 0,
+      token: "FLR",
+      status: "Withdrawn",
+      time: formatRelativeTime(e.timestamp * 1000),
+      txHash: e.txHash,
+    }));
+
+  return [...bidOps, ...withdrawnOps];
 }

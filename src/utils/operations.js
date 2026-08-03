@@ -59,6 +59,18 @@ export function activityTitle(op) {
   return `Sealed bid on "${op.party}"`;
 }
 
+/// Filters operations down to the current calendar month (local time) -
+/// used by Dashboard's "Total Operations" card, which is meant as an
+/// activity-volume metric ("how much has happened lately"), not an all-time
+/// count. Operations with no resolved timestamp (timestamp: 0, shown as
+/// "On-chain" rather than a relative time) are excluded rather than guessed
+/// at, since we genuinely don't know when they happened.
+export function operationsThisMonth(feed) {
+  const now = new Date();
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+  return feed.filter((op) => op.timestamp >= startOfMonth);
+}
+
 /// Builds the Operations feed from real on-chain data - no mock data
 /// anywhere. Bid activity (Sealed/Won/Lost/Withdrawn) is a global feed
 /// across every bidder, since it's all public on-chain information anyway

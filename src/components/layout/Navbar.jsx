@@ -57,7 +57,7 @@ export default function Navbar({ opened, toggle }) {
         <Burger opened={opened} onClick={toggle} hiddenFrom="sm" size="sm" />
 
         <TextInput
-          placeholder="Search VeilPay"
+          placeholder="Search VeilSeal"
           leftSection={<LuSearch size={15} />}
           w={300}
           styles={{ input: { fontSize: 14 } }}

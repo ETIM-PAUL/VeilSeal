@@ -51,11 +51,11 @@ export default function Sidebar() {
             fw={600}
             style={{ fontFamily: "var(--font-display)", lineHeight: 1.1 }}
           >
-            VeilPay
+            VeilSeal
           </Text>
 
           <Text className="label-micro" style={{ fontSize: 10 }}>
-            Confidential Finance
+            Confidential Bidding
           </Text>
         </div>
       </Group>

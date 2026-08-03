@@ -11,10 +11,13 @@ import {
 } from "ethers";
 import { eciesEncryptForTee } from "../lib/tee/goEcies";
 
-// Must match the Solidity constant: bytes32("VEILPAY_TEE_ACTION_RESULT")
-// (a direct string-to-bytes32 cast, mirroring Flare's own
-// `bytes32("TEE_ACTION_RESULT")` convention - not a keccak256 hash).
-export const TEE_ACTION_RESULT_PREFIX = encodeBytes32String("VEILPAY_TEE_ACTION_RESULT");
+// Left over from the earlier self-contained-contract era, before the pivot
+// to the real fce-veil-bid registry deployment - unused by anything in the
+// live app (that contract's actual constant is bytes32("TEE_ACTION_RESULT"),
+// no prefix at all; the TEE signs and the contract verifies server-side, the
+// client never recomputes this). Kept in sync with the rename regardless
+// since it's cheap and harmless either way.
+export const TEE_ACTION_RESULT_PREFIX = encodeBytes32String("VEILSEAL_TEE_ACTION_RESULT");
 
 // On-chain amounts are integers; bid amounts in the UI are displayed with
 // up to 2 decimal places, so we scale by 100 before hashing/encoding.

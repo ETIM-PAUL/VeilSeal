@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { COSTON2_CHAIN_ID_HEX, COSTON2_PARAMS } from "../utils/network";
 import { WalletContext } from "./wallet-context";
 
-const DISCONNECTED_FLAG = "veilpay:wallet-disconnected";
+const DISCONNECTED_FLAG = "veilseal:wallet-disconnected";
 
 export function WalletProvider({ children }) {
   const [address, setAddress] = useState(null);

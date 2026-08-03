@@ -14,7 +14,7 @@ import NewTransferDrawer from "../components/transfers/NewTransferDrawer";
 import NewBidDrawer from "../components/bids/NewBidDrawer";
 import { useBids } from "../context/useBids";
 import { useOperationsFeed } from "../hooks/useOperationsFeed";
-import { PENDING_STATUSES, RESOLVED_STATUSES, activityTitle } from "../utils/operations";
+import { PENDING_STATUSES, RESOLVED_STATUSES, activityTitle, operationsThisMonth } from "../utils/operations";
 
 export default function Dashboard() {
   const { createListing } = useBids();
@@ -32,7 +32,7 @@ export default function Dashboard() {
 
   const stats = useMemo(
     () => ({
-      total: feed.length,
+      total: operationsThisMonth(feed).length,
       pending: feed.filter((op) => PENDING_STATUSES.includes(op.status)).length,
       resolved: feed.filter((op) => RESOLVED_STATUSES.includes(op.status)).length,
     }),
@@ -69,7 +69,7 @@ export default function Dashboard() {
             Array.from({ length: 3 }).map((_, i) => <StatCardSkeleton key={i} />)
           ) : (
             <>
-              <StatCard title="Total Operations" value={stats.total} icon={LuActivity} />
+              <StatCard title="Total Operations" value={stats.total} icon={LuActivity} description="This month" />
               <StatCard title="Pending" value={stats.pending} icon={LuHourglass} description="Sealed or awaiting reveal" />
               <StatCard title="Resolved" value={stats.resolved} icon={LuCheckCheck} description="Won, lost, withdrawn, or revealed" />
             </>

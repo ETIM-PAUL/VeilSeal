@@ -135,7 +135,7 @@ const LOG_CHUNK_SIZE = 25;
 // Scoped by contract address + schema version so a redeploy (new address, or
 // new fields on ListingCreated) never merges stale cached events with a
 // different contract's/schema's data.
-const LISTINGS_CACHE_KEY = `veilpay:listing-events-cache:v3:${VEIL_BIDDING_ADDRESS}`;
+const LISTINGS_CACHE_KEY = `veilseal:listing-events-cache:v3:${VEIL_BIDDING_ADDRESS}`;
 
 async function queryLogsChunked(contract, filter, fromBlock, toBlock) {
   const events = [];
@@ -230,7 +230,7 @@ export async function resolveBlockTimestamps(blockNumbers) {
 
 // Scoped by contract address + schema version, same reasoning as
 // LISTINGS_CACHE_KEY.
-const BID_ACTIVITY_CACHE_KEY = `veilpay:bid-activity-cache:v1:${VEIL_BIDDING_ADDRESS}`;
+const BID_ACTIVITY_CACHE_KEY = `veilseal:bid-activity-cache:v1:${VEIL_BIDDING_ADDRESS}`;
 
 function loadBidActivityCache() {
   try {

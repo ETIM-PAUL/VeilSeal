@@ -69,12 +69,26 @@ contract CipherListingTest is Test {
         p[1] = bob;
     }
 
+    /// @dev Cipher listings carry the same item metadata as a standard
+    /// listing (see the item-metadata correction to CipherListing) - this
+    /// helper fills in placeholder title/description/itemType/ipfsHash so
+    /// the word-count/access-control/reveal tests below can focus on what
+    /// they're actually testing.
+    function _createCipherListing(string[] memory words, uint64 deadline, address[] memory participants)
+        internal
+        returns (uint256 listingId)
+    {
+        return bidding.createCipherListing(
+            "Mystery Prize", "Auctioned via word-arrangement challenge", "image", "QmTestHash", words, deadline, participants
+        );
+    }
+
     // --- Word count validation ---
 
     function test_createCipherListing_accepts12Words() public {
         vm.prank(creator);
-        uint256 id = bidding.createCipherListing(words12, uint64(block.timestamp + 1 days), _participants());
-        (address listedCreator,,,, uint8 wordCount) = bidding.cipherListings(id);
+        uint256 id = _createCipherListing(words12, uint64(block.timestamp + 1 days), _participants());
+        (address listedCreator,,,, uint8 wordCount,,,,) = bidding.cipherListings(id);
         assertEq(listedCreator, creator);
         assertEq(wordCount, 12);
     }
@@ -82,27 +96,27 @@ contract CipherListingTest is Test {
     function test_createCipherListing_rejectsWrongWordCount() public {
         vm.prank(creator);
         vm.expectRevert("word list must be 12 or 24 words");
-        bidding.createCipherListing(words7, uint64(block.timestamp + 1 days), _participants());
+        _createCipherListing(words7, uint64(block.timestamp + 1 days), _participants());
     }
 
     function test_createCipherListing_rejectsPastDeadline() public {
         vm.warp(1000);
         vm.prank(creator);
         vm.expectRevert("deadline must be future");
-        bidding.createCipherListing(words12, uint64(block.timestamp), _participants());
+        _createCipherListing(words12, uint64(block.timestamp), _participants());
     }
 
     function test_createCipherListing_rejectsNoParticipants() public {
         vm.prank(creator);
         vm.expectRevert("cipher listings need at least one participant");
-        bidding.createCipherListing(words12, uint64(block.timestamp + 1 days), new address[](0));
+        _createCipherListing(words12, uint64(block.timestamp + 1 days), new address[](0));
     }
 
     // --- Access control ---
 
     function test_addCipherParticipants_onlyCreator() public {
         vm.prank(creator);
-        uint256 id = bidding.createCipherListing(words12, uint64(block.timestamp + 1 days), _participants());
+        uint256 id = _createCipherListing(words12, uint64(block.timestamp + 1 days), _participants());
 
         address[] memory more = new address[](1);
         more[0] = outsider;
@@ -114,7 +128,7 @@ contract CipherListingTest is Test {
 
     function test_submitCipherGuess_onlyParticipant() public {
         vm.prank(creator);
-        uint256 id = bidding.createCipherListing(words12, uint64(block.timestamp + 1 days), _participants());
+        uint256 id = _createCipherListing(words12, uint64(block.timestamp + 1 days), _participants());
 
         vm.prank(outsider);
         vm.expectRevert("not a participant of this cipher listing");
@@ -123,7 +137,7 @@ contract CipherListingTest is Test {
 
     function test_submitCipherGuess_rejectsDoubleSubmit() public {
         vm.prank(creator);
-        uint256 id = bidding.createCipherListing(words12, uint64(block.timestamp + 1 days), _participants());
+        uint256 id = _createCipherListing(words12, uint64(block.timestamp + 1 days), _participants());
 
         vm.prank(alice);
         bidding.submitCipherGuess(id, bytes32(uint256(1)), hex"1234");
@@ -135,7 +149,7 @@ contract CipherListingTest is Test {
 
     function test_submitCipherGuess_recordsGuesserAndCommitment() public {
         vm.prank(creator);
-        uint256 id = bidding.createCipherListing(words12, uint64(block.timestamp + 1 days), _participants());
+        uint256 id = _createCipherListing(words12, uint64(block.timestamp + 1 days), _participants());
 
         vm.prank(alice);
         bidding.submitCipherGuess(id, bytes32(uint256(42)), hex"cafe");
@@ -169,7 +183,7 @@ contract CipherListingTest is Test {
 
     function test_submitCipherRevealResult_acceptsValidSignatureAndStoresArrangements() public {
         vm.prank(creator);
-        uint256 id = bidding.createCipherListing(words12, uint64(block.timestamp + 1 days), _participants());
+        uint256 id = _createCipherListing(words12, uint64(block.timestamp + 1 days), _participants());
 
         vm.prank(alice);
         bidding.submitCipherGuess(id, bytes32(uint256(1)), hex"1234");
@@ -191,7 +205,7 @@ contract CipherListingTest is Test {
 
         bidding.submitCipherRevealResult(resultData, actionId, tag, 1, signature);
 
-        (,, bool revealed, address winner,) = bidding.cipherListings(id);
+        (,, bool revealed, address winner,,,,,) = bidding.cipherListings(id);
         assertTrue(revealed);
         assertEq(winner, alice);
 
@@ -203,7 +217,7 @@ contract CipherListingTest is Test {
 
     function test_submitCipherRevealResult_rejectsBadSignature() public {
         vm.prank(creator);
-        uint256 id = bidding.createCipherListing(words12, uint64(block.timestamp + 1 days), _participants());
+        uint256 id = _createCipherListing(words12, uint64(block.timestamp + 1 days), _participants());
         vm.warp(block.timestamp + 2 days);
 
         uint8[] memory arr = new uint8[](12);
@@ -230,7 +244,7 @@ contract CipherListingTest is Test {
 
     function test_submitCipherRevealResult_rejectsBeforeDeadline() public {
         vm.prank(creator);
-        uint256 id = bidding.createCipherListing(words12, uint64(block.timestamp + 1 days), _participants());
+        uint256 id = _createCipherListing(words12, uint64(block.timestamp + 1 days), _participants());
 
         uint8[] memory arr = new uint8[](12);
         for (uint8 i = 0; i < 12; i++) {

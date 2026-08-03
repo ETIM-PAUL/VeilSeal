@@ -9,10 +9,12 @@ import BidFilters from "../components/bids/BidFilters";
 import NewBidDrawer from "../components/bids/NewBidDrawer";
 import PlaceBidDrawer from "../components/bids/PlaceBidDrawer";
 import BidDetailDrawer from "../components/bids/BidDetailDrawer";
+import CreatedByMeToggle from "../components/common/CreatedByMeToggle";
 import EmptyState from "../components/common/EmptyState";
 
 import { getBidStatus } from "../utils/bids";
 import { useBids } from "../context/useBids";
+import { useWallet } from "../context/useWallet";
 
 export default function Bids() {
   // Bids live in BidsContext (mounted once, above the router) so navigating
@@ -20,11 +22,13 @@ export default function Bids() {
   // only refresh() (the Refresh button) or the connected wallet changing
   // triggers a re-fetch. See src/context/BidsContext.jsx.
   const { bids, setBids, loading: chainLoading, error: chainError, refresh, createListing } = useBids();
+  const { address, isConnected } = useWallet();
 
   const [search, setSearch] = useState("");
   const [type, setType] = useState("All");
   const [status, setStatus] = useState("All");
   const [sort, setSort] = useState("deadline-asc");
+  const [mineOnly, setMineOnly] = useState(false);
 
   const [newOpened, { open: openNew, close: closeNew }] = useDisclosure(false);
   const [placeBidId, setPlaceBidId] = useState(null);
@@ -34,13 +38,14 @@ export default function Bids() {
     const list = bids
       .filter((b) => b.title.toLowerCase().includes(search.toLowerCase()))
       .filter((b) => type === "All" || b.itemType === type)
-      .filter((b) => status === "All" || getBidStatus(b) === status);
+      .filter((b) => status === "All" || getBidStatus(b) === status)
+      .filter((b) => !mineOnly || (address && b.creator?.toLowerCase() === address.toLowerCase()));
 
     return [...list].sort((a, b) => {
       const diff = new Date(a.deadline) - new Date(b.deadline);
       return sort === "deadline-asc" ? diff : -diff;
     });
-  }, [bids, search, type, status, sort]);
+  }, [bids, search, type, status, sort, mineOnly, address]);
 
   const handlePlaceBid = ({ amount, token, wallet, termsCommitment, txHash }) => {
     setBids((prev) =>
@@ -124,16 +129,20 @@ export default function Bids() {
           </Text>
         )}
 
-        <BidFilters
-          search={search}
-          onSearch={setSearch}
-          type={type}
-          onType={setType}
-          status={status}
-          onStatus={setStatus}
-          sort={sort}
-          onSort={setSort}
-        />
+        <Group justify="space-between">
+          <BidFilters
+            search={search}
+            onSearch={setSearch}
+            type={type}
+            onType={setType}
+            status={status}
+            onStatus={setStatus}
+            sort={sort}
+            onSort={setSort}
+          />
+
+          <CreatedByMeToggle checked={mineOnly} onChange={setMineOnly} disabled={!isConnected} />
+        </Group>
 
         {initialLoad ? (
           <SimpleGrid cols={{ base: 1, sm: 2, xl: 3 }}>

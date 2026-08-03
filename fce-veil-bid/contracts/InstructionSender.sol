@@ -184,18 +184,25 @@ contract VeilBidding {
         bytes[] encryptedTerms;
     }
 
-    /// @notice A Cipher Listing: a skill-based challenge rather than a bid.
-    /// The creator's word list is public (see cipherWords) - only
-    /// participation is invite-gated. Array-typed fields (words, the two
-    /// revealed arrangements) live in separate top-level mappings rather than
-    /// on this struct, since Solidity's auto-generated public getter for a
-    /// mapping silently omits any array-typed struct member.
+    /// @notice A Cipher Listing: an auctioned item, same as Listing, except
+    /// the winner is decided by a skill-based word-arrangement challenge
+    /// instead of the highest sealed bid. Item metadata (title/description/
+    /// itemType/ipfsHash) is public on-chain exactly like a standard listing.
+    /// Always invite-gated (no score mode, no minBid - there's no bid amount
+    /// here at all). Array-typed fields (words, the two revealed
+    /// arrangements) live in separate top-level mappings rather than on this
+    /// struct, since Solidity's auto-generated public getter for a mapping
+    /// silently omits any array-typed struct member.
     struct CipherListing {
         address creator;
         uint64 deadline;
         bool revealed;
         address winner;
         uint8 wordCount; // 12 or 24, validated at creation
+        string title;
+        string description;
+        string itemType; // "image" | "video" | "audio" | "file"
+        string ipfsHash; // Pinata/IPFS CID of the uploaded item
     }
 
     /// @notice A participant's sealed guess: an on-chain commitment plus an
@@ -299,7 +306,15 @@ contract VeilBidding {
     event StealthBidRevealed(bytes32 indexed hashedId, address indexed winner, uint256 winningAmount);
 
     event CipherListingCreated(
-        uint256 indexed listingId, address indexed creator, uint64 deadline, uint8 wordCount, string[] words
+        uint256 indexed listingId,
+        address indexed creator,
+        uint64 deadline,
+        string title,
+        string description,
+        string itemType,
+        string ipfsHash,
+        uint8 wordCount,
+        string[] words
     );
     event CipherParticipantsAdded(uint256 indexed listingId, address[] participants);
     event CipherGuessSealed(uint256 indexed listingId, address indexed guesser, bytes32 guessCommitment);
@@ -798,17 +813,23 @@ contract VeilBidding {
 
     // --- Cipher listing lifecycle ---
 
-    /// @notice Create a Cipher listing: a skill-based challenge, not a bid.
-    /// The word list is public (unlike stealth) but always invite-gated
-    /// (unlike standard, no score-gated mode exists here) - at least one
-    /// initial participant is required. The TEE is never invoked at creation
-    /// - it generates its reordering fresh at reveal time.
+    /// @notice Create a Cipher listing: an auctioned item, same as
+    /// createListing, except the winner is decided by a word-arrangement
+    /// challenge instead of the highest sealed bid - no bid amount or score
+    /// mode, always invite-gated (at least one initial participant is
+    /// required). The TEE is never invoked at creation - it generates its
+    /// reordering fresh at reveal time.
     function createCipherListing(
+        string calldata _title,
+        string calldata _description,
+        string calldata _itemType,
+        string calldata _ipfsHash,
         string[] calldata _words,
         uint64 _deadline,
         address[] calldata _initialParticipants
     ) external returns (uint256 listingId) {
         require(_deadline > block.timestamp, "deadline must be future");
+        require(bytes(_title).length > 0, "title required");
         require(_words.length == 12 || _words.length == 24, "word list must be 12 or 24 words");
         require(_initialParticipants.length > 0, "cipher listings need at least one participant");
 
@@ -818,11 +839,17 @@ contract VeilBidding {
             deadline: _deadline,
             revealed: false,
             winner: address(0),
-            wordCount: uint8(_words.length)
+            wordCount: uint8(_words.length),
+            title: _title,
+            description: _description,
+            itemType: _itemType,
+            ipfsHash: _ipfsHash
         });
         cipherWords[listingId] = _words;
 
-        emit CipherListingCreated(listingId, msg.sender, _deadline, uint8(_words.length), _words);
+        emit CipherListingCreated(
+            listingId, msg.sender, _deadline, _title, _description, _itemType, _ipfsHash, uint8(_words.length), _words
+        );
 
         _addCipherParticipants(listingId, _initialParticipants);
     }

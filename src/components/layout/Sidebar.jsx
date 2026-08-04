@@ -2,7 +2,6 @@ import { Stack, Text, Group } from "@mantine/core";
 
 import {
   LuLayoutDashboard,
-  LuArrowLeftRight,
   LuGavel,
   LuLockKeyhole,
   LuPuzzle,
@@ -17,7 +16,6 @@ import { useWallet } from "../../context/useWallet";
 
 const baseLinks = [
   { name: "Dashboard", path: "/", icon: LuLayoutDashboard },
-  { name: "P2P Transfers", path: "/p2p-transfers", icon: LuArrowLeftRight },
   { name: "Standard Listings", path: "/listings", icon: LuGavel },
   { name: "Cipher Listings", path: "/cipher-listings", icon: LuPuzzle },
   { name: "Agent", path: "/agents", icon: LuBot },

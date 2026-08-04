@@ -1,7 +1,7 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { SimpleGrid, Grid, Stack, Title, Text, Button, Group } from "@mantine/core";
 
-import { LuArrowLeftRight, LuGavel, LuActivity, LuHourglass, LuCheckCheck, LuShieldCheck } from "react-icons/lu";
+import { LuGavel, LuLockKeyhole, LuPuzzle, LuActivity, LuHourglass, LuCheckCheck, LuShieldCheck } from "react-icons/lu";
 
 import StatCard from "../components/dashboard/StatCard";
 import StatCardSkeleton from "../components/common/StatCardSkeleton";
@@ -10,25 +10,33 @@ import ActivityFeedSkeleton from "../components/dashboard/ActivityFeedSkeleton";
 import SignalScoreModal from "../components/dashboard/SignalScoreModal";
 
 import { useDisclosure } from "@mantine/hooks";
-import NewTransferDrawer from "../components/transfers/NewTransferDrawer";
 import NewBidDrawer from "../components/bids/NewBidDrawer";
+import NewCipherListingDrawer from "../components/cipher/NewCipherListingDrawer";
 import { useBids } from "../context/useBids";
+import { useCipherListings } from "../context/useCipherListings";
 import { useOperationsFeed } from "../hooks/useOperationsFeed";
 import { PENDING_STATUSES, RESOLVED_STATUSES, activityTitle, operationsThisMonth } from "../utils/operations";
 
 export default function Dashboard() {
   const { createListing } = useBids();
+  const { createCipherListing } = useCipherListings();
   // Same real on-chain feed the Operations page reads - see
   // useOperationsFeed/buildOperationsFeed for what's in it (global bid
   // activity + the connected wallet's own listings, standard listings only).
   const { feed, loading } = useOperationsFeed();
 
-  const [openedP2p, { open: openP2p, close: closeP2p }] = useDisclosure(false);
   const [scoreOpened, { open: openScore, close: closeScore }] = useDisclosure(false);
-  // Dashboard's is the only NewBidDrawer entry point that shows the standard-
-  // vs-stealth type toggle - Listings and Stealth Listings each open it
-  // locked to one type instead (see their own "New" buttons).
-  const [newBidOpened, { open: openNewBid, close: closeNewBid }] = useDisclosure(false);
+  // Dashboard is the one place that offers all three listing types from a
+  // single panel - Standard/Stealth Listings and Cipher Listings each open
+  // their own drawer locked to one type instead (see their own "New" buttons).
+  const [bidLockedType, setBidLockedType] = useState("standard");
+  const [newBidOpened, { open: openNewBidDrawer, close: closeNewBid }] = useDisclosure(false);
+  const [newCipherOpened, { open: openNewCipher, close: closeNewCipher }] = useDisclosure(false);
+
+  const openNewBid = (type) => {
+    setBidLockedType(type);
+    openNewBidDrawer();
+  };
 
   const stats = useMemo(
     () => ({
@@ -52,7 +60,7 @@ export default function Dashboard() {
             <Title order={2}>Good afternoon</Title>
 
             <Text className="caption" mt={4} maw={520}>
-              Private payments and sealed bidding powered by Flare Confidential
+              Sealed-bid and skill-based auctions powered by Flare Confidential
               Compute.
             </Text>
           </div>
@@ -91,19 +99,28 @@ export default function Dashboard() {
                 <Button
                   justify="flex-start"
                   variant="light"
-                  onClick={openP2p}
-                  leftSection={<LuArrowLeftRight size={15} />}
+                  onClick={() => openNewBid("standard")}
+                  leftSection={<LuGavel size={15} />}
                 >
-                  Private Transfer
+                  Standard Listing
                 </Button>
 
                 <Button
                   justify="flex-start"
                   variant="light"
-                  onClick={openNewBid}
-                  leftSection={<LuGavel size={15} />}
+                  onClick={() => openNewBid("stealth")}
+                  leftSection={<LuLockKeyhole size={15} />}
                 >
-                  New Sealed Bid
+                  Stealth Listing
+                </Button>
+
+                <Button
+                  justify="flex-start"
+                  variant="light"
+                  onClick={openNewCipher}
+                  leftSection={<LuPuzzle size={15} />}
+                >
+                  Cipher Listing
                 </Button>
               </Stack>
             </div>
@@ -111,9 +128,9 @@ export default function Dashboard() {
         </Grid>
       </Stack>
 
-      <NewTransferDrawer opened={openedP2p} onClose={closeP2p} />
       <SignalScoreModal opened={scoreOpened} onClose={closeScore} />
-      <NewBidDrawer opened={newBidOpened} onClose={closeNewBid} onCreate={createListing} />
+      <NewBidDrawer opened={newBidOpened} onClose={closeNewBid} onCreate={createListing} lockedType={bidLockedType} />
+      <NewCipherListingDrawer opened={newCipherOpened} onClose={closeNewCipher} onCreate={createCipherListing} />
     </>
   );
 }

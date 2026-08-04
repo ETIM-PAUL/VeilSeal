@@ -5,7 +5,6 @@ import {
    
    
    import Dashboard from "../pages/Dashboard";
-   import Transfers from "../pages/Transfers";
    import Bids from "../pages/Bids";
    import StealthListings from "../pages/StealthListings";
    import CipherListings from "../pages/CipherListings";
@@ -21,8 +20,6 @@ import {
    
    <Route path="/" element={<Dashboard/>}/>
 
-   <Route path="/p2p-transfers" element={<Transfers/>}/>
-   
    <Route path="/listings" element={<Bids/>}/>
 
    <Route path="/stealth-listings" element={<StealthListings/>}/>

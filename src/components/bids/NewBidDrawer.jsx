@@ -45,18 +45,6 @@ import { uploadFileToPinata, ipfsGatewayUrl, isPinataConfigured } from "../../li
 // see PlaceBidDrawer.jsx for the same pattern applied to sealed bids.
 const STATIC_TEE_PUBLIC_KEY = import.meta.env.VITE_TEE_PUBLIC_KEY;
 
-// "standard" listings use createListing (score-gated or invite-only, title/
-// description/etc. stored in the clear on-chain). "stealth" listings use
-// createStealthListing instead - every human-readable field is ECIES-
-// encrypted client-side before it ever reaches the contract, always
-// invite-gated (no score option - there's no public listing to browse into,
-// you have to already hold the hashedId), and keyed by a hash the creator
-// shares out-of-band rather than a sequential public id.
-const LISTING_TYPES = [
-  { value: "standard", label: "Standard" },
-  { value: "stealth", label: "Stealth" },
-];
-
 // "score" - TEE-verified minimum wallet score, with an optional invite list
 // that bypasses the score check. "invite" - only creator-invited addresses
 // can bid at all, no score escape hatch. Every listing is gated one way or
@@ -91,11 +79,10 @@ function parseParticipants(raw) {
     .filter((a) => /^0x[a-fA-F0-9]{40}$/.test(a));
 }
 
-/// @param lockedType optional "standard" | "stealth" - when set, the type
-///   toggle is hidden entirely and the form is fixed to that type. Used by
-///   the Listings and Stealth Listings pages, which each only ever want one
-///   kind created from their own "New" button. Leave unset (Dashboard's
-///   entry point) to show the toggle and let the user pick either.
+/// @param lockedType "standard" | "stealth" - every entry point (Dashboard,
+///   Standard Listings, Stealth Listings) already knows which kind it wants
+///   before opening this drawer, so the type is always fixed rather than
+///   chosen inside it.
 export default function NewBidDrawer({ opened, onClose, onCreate = () => {}, lockedType }) {
   const [step, setStep] = useState(0);
   const [form, setForm] = useState(() => initialForm(lockedType));
@@ -277,7 +264,7 @@ export default function NewBidDrawer({ opened, onClose, onCreate = () => {}, loc
       onClose={reset}
       position="right"
       size="xl"
-      title={lockedType === "stealth" ? "Create Stealth Listing" : lockedType === "standard" ? "Create Listing" : "Create Bid Listing"}
+      title={lockedType === "stealth" ? "Create Stealth Listing" : "Create Listing"}
     >
       <Stepper active={step} allowNextStepsSelect={false}>
         <Stepper.Step label="Item">
@@ -359,21 +346,6 @@ export default function NewBidDrawer({ opened, onClose, onCreate = () => {}, loc
                     min={0}
                   />
                 </Group>
-
-                {!lockedType && (
-                  <div>
-                    <Text size="sm" fw={500} mb={6}>
-                      Listing Type
-                    </Text>
-
-                    <SegmentedControl
-                      fullWidth
-                      data={LISTING_TYPES}
-                      value={form.listingType}
-                      onChange={set("listingType")}
-                    />
-                  </div>
-                )}
 
                 {form.listingType === "stealth" && (
                   <Text size="xs" className="ink-dim">

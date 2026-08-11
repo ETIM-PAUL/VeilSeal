@@ -281,7 +281,7 @@ export default function NewCipherListingDrawer({ opened, onClose, onCreate = () 
                   onChange={(value) => set("deadline")(value ? new Date(value) : null)}
                   minDate={new Date()}
                   clearable
-                  description="Guesses are sealed until this deadline, then revealed automatically"
+                  description="Guesses are sealed until this deadline, then revealed after"
                 />
 
                 <Textarea

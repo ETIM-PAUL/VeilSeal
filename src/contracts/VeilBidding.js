@@ -135,91 +135,74 @@ export async function fetchOnChainListing(listingId) {
 }
 
 // Coston2's public RPC caps eth_getLogs at 30 blocks per call - querying any
-// meaningful range means paging through in small chunks.
+// meaningful range means paging through in small chunks. Still used by
+// fetchBidActivity below, which has no sequential on-chain counter to
+// substitute (unlike listings/cipher listings - see fetchAllListings).
 const LOG_CHUNK_SIZE = 25;
-// Scoped by contract address + schema version so a redeploy (new address, or
-// new fields on ListingCreated) never merges stale cached events with a
-// different contract's/schema's data.
-const LISTINGS_CACHE_KEY = `veilseal:listing-events-cache:v3:${VEIL_BIDDING_ADDRESS}`;
+// Measured against the live Coston2 public RPC: 20 concurrent eth_getLogs
+// calls, 3 batches of 60, completed in ~1.5s total with zero errors (40
+// concurrent was also clean, but this leaves headroom on a shared public
+// endpoint). Strictly sequential is ~0.5s/call - a full cold scan (thousands
+// of chunks once enough blocks have passed since deploy) is minutes at this
+// concurrency vs. hours sequential.
+const CHUNK_CONCURRENCY = 20;
 
 async function queryLogsChunked(contract, filter, fromBlock, toBlock) {
-  const events = [];
+  const starts = [];
   for (let start = fromBlock; start <= toBlock; start += LOG_CHUNK_SIZE) {
-    const end = Math.min(start + LOG_CHUNK_SIZE - 1, toBlock);
-    const chunk = await contract.queryFilter(filter, start, end);
-    events.push(...chunk);
+    starts.push(start);
   }
-  return events;
-}
 
-function loadListingsCache() {
-  try {
-    return JSON.parse(localStorage.getItem(LISTINGS_CACHE_KEY)) ?? null;
-  } catch {
-    return null;
+  const chunks = new Array(starts.length);
+  let next = 0;
+  async function worker() {
+    while (next < starts.length) {
+      const i = next++;
+      const end = Math.min(starts[i] + LOG_CHUNK_SIZE - 1, toBlock);
+      chunks[i] = await contract.queryFilter(filter, starts[i], end);
+    }
   }
+  await Promise.all(Array.from({ length: Math.min(CHUNK_CONCURRENCY, starts.length) }, worker));
+  return chunks.flat();
 }
 
-function saveListingsCache(cache) {
-  localStorage.setItem(LISTINGS_CACHE_KEY, JSON.stringify(cache));
-}
-
-/// Discovers every listing ever created on-chain via ListingCreated events -
-/// the source of truth for "which listings exist", since a listing created
-/// from one browser/account must still be visible (and biddable) from any
-/// other. The event carries the full item metadata (title/description/
-/// itemType/ipfsHash/minBid), so no separate per-listing call or off-chain
-/// index is needed to render the list. Caches results + last-synced block in
-/// localStorage so repeat loads only scan new blocks, since the public RPC's
-/// 30-block eth_getLogs cap makes a full historical scan expensive. Returns
-/// [{ listingId, creator, deadline, title, description, itemType, ipfsHash,
-/// minBid, txHash }], oldest first.
+/// Discovers every listing ever created on-chain - the source of truth for
+/// "which listings exist", since a listing created from one browser/account
+/// must still be visible (and biddable) from any other. Listing IDs are
+/// assigned sequentially from the contract's own counter (`listingId =
+/// ++listingCount`, see InstructionSender.sol), so every listing's full data
+/// is just `listingCount()` + one `listings(id)` view call per ID - no event
+/// scan needed. (This used to scan ListingCreated events in 25-block chunks
+/// from the deploy block, which is why the cache/chunking machinery below
+/// still exists for fetchBidActivity: with tens of thousands of blocks
+/// elapsed since deploy, a cold scan took on the order of hours and looked
+/// like the listings page was stuck.) Creation tx hash/block number aren't
+/// stored on-chain and would need that same event scan to recover, so they're
+/// left null here - callers already have a graceful fallback for that (see
+/// buildOperationsFeed's "On-chain" display case). Returns [{ listingId,
+/// creator, deadline, title, description, itemType, ipfsHash, minBid,
+/// minScore, inviteOnly, txHash: null, blockNumber: null }].
 export async function fetchAllListings() {
   const contract = getReadOnlyContract();
-  const provider = getReadOnlyProvider();
-  const currentBlock = await provider.getBlockNumber();
+  const count = Number(await contract.listingCount());
+  if (count === 0) return [];
 
-  const cache = loadListingsCache();
-  const fromBlock = cache && cache.lastBlock >= DEPLOY_BLOCK ? cache.lastBlock + 1 : DEPLOY_BLOCK;
-  const cachedEvents = cache?.events ?? [];
+  const ids = Array.from({ length: count }, (_, i) => i + 1);
+  const raw = await Promise.all(ids.map((id) => contract.listings(id)));
 
-  let newRaw = [];
-  if (fromBlock <= currentBlock) {
-    const filter = contract.filters.ListingCreated();
-    newRaw = await queryLogsChunked(contract, filter, fromBlock, currentBlock);
-  }
-
-  const newEvents = newRaw.map((event) => ({
-    listingId: event.args.listingId.toString(),
-    creator: event.args.creator,
-    deadline: event.args.deadline.toString(),
-    title: event.args.title,
-    description: event.args.description,
-    itemType: event.args.itemType,
-    ipfsHash: event.args.ipfsHash,
-    minBid: event.args.minBid.toString(),
-    minScore: event.args.minScore.toString(),
-    inviteOnly: event.args.inviteOnly,
-    txHash: event.transactionHash,
-    blockNumber: event.blockNumber,
-  }));
-
-  const merged = [...cachedEvents, ...newEvents];
-  saveListingsCache({ lastBlock: currentBlock, events: merged });
-
-  return merged.map((e) => ({
-    listingId: BigInt(e.listingId),
-    creator: e.creator,
-    deadline: BigInt(e.deadline),
-    title: e.title,
-    description: e.description,
-    itemType: e.itemType,
-    ipfsHash: e.ipfsHash,
-    minBid: BigInt(e.minBid),
-    minScore: BigInt(e.minScore ?? 0),
-    inviteOnly: Boolean(e.inviteOnly),
-    txHash: e.txHash,
-    blockNumber: e.blockNumber,
+  return raw.map((listing, i) => ({
+    listingId: BigInt(ids[i]),
+    creator: listing.creator,
+    deadline: listing.deadline,
+    title: listing.title,
+    description: listing.description,
+    itemType: listing.itemType,
+    ipfsHash: listing.ipfsHash,
+    minBid: listing.minBid,
+    minScore: listing.minScore,
+    inviteOnly: Boolean(listing.inviteOnly),
+    txHash: null,
+    blockNumber: null,
   }));
 }
 
@@ -233,8 +216,8 @@ export async function resolveBlockTimestamps(blockNumbers) {
   return new Map(uniqueBlocks.map((n, i) => [n, Number(blocks[i]?.timestamp ?? 0) * 1000]));
 }
 
-// Scoped by contract address + schema version, same reasoning as
-// LISTINGS_CACHE_KEY.
+// Scoped by contract address + schema version so a redeploy never merges
+// stale cached events with a different contract's/schema's data.
 const BID_ACTIVITY_CACHE_KEY = `veilseal:bid-activity-cache:v1:${VEIL_BIDDING_ADDRESS}`;
 
 function loadBidActivityCache() {
@@ -249,13 +232,28 @@ function saveBidActivityCache(cache) {
   localStorage.setItem(BID_ACTIVITY_CACHE_KEY, JSON.stringify(cache));
 }
 
-/// Discovers every sealed-bid activity event ever emitted for standard
-/// listings - BidSealed (a bid was committed) and BidCancelled (withdrawn
-/// before reveal) - each with a real tx hash and block timestamp. The
-/// Operations page derives its feed from this plus the already-fetched
-/// listings/participants state (see utils/operations.js) instead of mock
-/// data. Cached and chunked the same way fetchAllListings is, for the same
-/// reason (Coston2's public RPC caps eth_getLogs at 30 blocks per call).
+// The Operations/Dashboard activity feed only needs to show recent activity,
+// so the scan is capped to a trailing window instead of "since deploy" -
+// otherwise every day that passes makes the cold-scan (any browser without a
+// warm localStorage cache) permanently more expensive. ~1.71s/block measured
+// live against Coston2 (100k-block sample via eth_getBlockByNumber); computed
+// from wall-clock days rather than a hardcoded block count so it stays right
+// if Coston2's block time drifts.
+const ACTIVITY_LOOKBACK_DAYS = 3;
+const COSTON2_AVG_BLOCK_TIME_SEC = 1.71;
+const ACTIVITY_LOOKBACK_BLOCKS = Math.round((ACTIVITY_LOOKBACK_DAYS * 86400) / COSTON2_AVG_BLOCK_TIME_SEC);
+
+/// Discovers sealed-bid activity - BidSealed (a bid was committed) and
+/// BidCancelled (withdrawn before reveal) - for standard listings, over the
+/// last ACTIVITY_LOOKBACK_DAYS. Each event carries a real tx hash and block
+/// timestamp. The Operations page derives its feed from this plus the
+/// already-fetched listings/participants state (see utils/operations.js)
+/// instead of mock data. Cached in localStorage, pruned to the lookback
+/// window on every call (so the window actually slides forward as events age
+/// out, instead of just growing) and chunked with bounded concurrency via
+/// queryLogsChunked - unlike listings, there's no on-chain counter for "how
+/// many bid events exist", so this one genuinely has to scan Coston2's public
+/// RPC in 25-block eth_getLogs windows.
 ///
 /// Stealth listing activity is deliberately excluded - stealth listings are
 /// meant to be undiscoverable without their hashedId, and surfacing "who
@@ -265,10 +263,13 @@ export async function fetchBidActivity() {
   const contract = getReadOnlyContract();
   const provider = getReadOnlyProvider();
   const currentBlock = await provider.getBlockNumber();
+  const windowStart = Math.max(DEPLOY_BLOCK, currentBlock - ACTIVITY_LOOKBACK_BLOCKS);
 
   const cache = loadBidActivityCache();
-  const fromBlock = cache && cache.lastBlock >= DEPLOY_BLOCK ? cache.lastBlock + 1 : DEPLOY_BLOCK;
-  const cachedEvents = cache?.events ?? [];
+  const fromBlock = cache && cache.lastBlock >= windowStart ? cache.lastBlock + 1 : windowStart;
+  // Drop anything that's aged out of the window, whether it came from an
+  // older, wider cache (pre-lookback-cap) or has simply gotten stale since.
+  const cachedEvents = (cache?.events ?? []).filter((e) => e.blockNumber >= windowStart);
 
   let newEvents = [];
   if (fromBlock <= currentBlock) {
@@ -422,74 +423,42 @@ export function parseStealthListingCreatedEvent(receipt, contract) {
 // publishes the winner's own arrangement plus the TEE's true arrangement -
 // the frontend diffs the two itself, no match-count field travels on-chain.
 
-// Scoped by contract address + schema version, same reasoning as
-// LISTINGS_CACHE_KEY. v2: CipherListingCreated gained title/description/
-// itemType/ipfsHash (the auctioned item's metadata).
-const CIPHER_LISTINGS_CACHE_KEY = `veilseal:cipher-listing-events-cache:v2:${VEIL_BIDDING_ADDRESS}`;
-
-function loadCipherListingsCache() {
-  try {
-    return JSON.parse(localStorage.getItem(CIPHER_LISTINGS_CACHE_KEY)) ?? null;
-  } catch {
-    return null;
-  }
-}
-
-function saveCipherListingsCache(cache) {
-  localStorage.setItem(CIPHER_LISTINGS_CACHE_KEY, JSON.stringify(cache));
-}
-
-/// Discovers every Cipher listing ever created on-chain via
-/// CipherListingCreated events - mirrors fetchAllListings exactly, including
-/// the chunked-scan-with-localStorage-cache pattern. The event carries the
-/// full item metadata and word list, so no separate per-listing call is
-/// needed to render a listing card. Returns [{ listingId, creator, deadline,
-/// title, description, itemType, ipfsHash, wordCount, words, txHash,
-/// blockNumber }], oldest first.
+/// Discovers every Cipher listing ever created on-chain. Same fix as
+/// fetchAllListings: cipher listing IDs are also assigned sequentially
+/// (`listingId = ++cipherListingCount`), so this is `cipherListingCount()` +
+/// one `cipherListings(id)` + `getCipherWords(id)` pair per ID instead of a
+/// CipherListingCreated event scan. Words live in a separate getter because
+/// dynamic arrays inside a struct aren't included in the struct's own
+/// auto-generated getter. Creation tx hash/block number aren't recoverable
+/// without that event scan, so they're left null (same tradeoff as
+/// fetchAllListings). Returns [{ listingId, creator, deadline, title,
+/// description, itemType, ipfsHash, wordCount, words, txHash: null,
+/// blockNumber: null }].
 export async function fetchAllCipherListings() {
   const contract = getReadOnlyContract();
-  const provider = getReadOnlyProvider();
-  const currentBlock = await provider.getBlockNumber();
+  const count = Number(await contract.cipherListingCount());
+  if (count === 0) return [];
 
-  const cache = loadCipherListingsCache();
-  const fromBlock = cache && cache.lastBlock >= DEPLOY_BLOCK ? cache.lastBlock + 1 : DEPLOY_BLOCK;
-  const cachedEvents = cache?.events ?? [];
+  const ids = Array.from({ length: count }, (_, i) => i + 1);
+  const raw = await Promise.all(
+    ids.map(async (id) => {
+      const [listing, words] = await Promise.all([contract.cipherListings(id), contract.getCipherWords(id)]);
+      return { listing, words };
+    })
+  );
 
-  let newRaw = [];
-  if (fromBlock <= currentBlock) {
-    const filter = contract.filters.CipherListingCreated();
-    newRaw = await queryLogsChunked(contract, filter, fromBlock, currentBlock);
-  }
-
-  const newEvents = newRaw.map((event) => ({
-    listingId: event.args.listingId.toString(),
-    creator: event.args.creator,
-    deadline: event.args.deadline.toString(),
-    title: event.args.title,
-    description: event.args.description,
-    itemType: event.args.itemType,
-    ipfsHash: event.args.ipfsHash,
-    wordCount: Number(event.args.wordCount),
-    words: [...event.args.words],
-    txHash: event.transactionHash,
-    blockNumber: event.blockNumber,
-  }));
-
-  const merged = [...cachedEvents, ...newEvents];
-  saveCipherListingsCache({ lastBlock: currentBlock, events: merged });
-
-  return merged.map((e) => ({
-    listingId: BigInt(e.listingId),
-    creator: e.creator,
-    deadline: BigInt(e.deadline),
-    title: e.title,
-    description: e.description,
-    itemType: e.itemType,
-    ipfsHash: e.ipfsHash,
-    wordCount: e.wordCount,
-    words: e.words,
-    txHash: e.txHash,
-    blockNumber: e.blockNumber,
+  return raw.map(({ listing, words }, i) => ({
+    listingId: BigInt(ids[i]),
+    creator: listing.creator,
+    deadline: listing.deadline,
+    title: listing.title,
+    description: listing.description,
+    itemType: listing.itemType,
+    ipfsHash: listing.ipfsHash,
+    wordCount: Number(listing.wordCount),
+    words: [...words],
+    txHash: null,
+    blockNumber: null,
   }));
 }
 

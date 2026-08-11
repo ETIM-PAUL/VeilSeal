@@ -11,6 +11,11 @@ export default defineConfig(({ mode }) => {
       tailwindcss(),
     ],
     server: {
+      // Lets external testers reach the dev server through an ngrok tunnel -
+      // Vite 5+ rejects requests whose Host header it doesn't recognize by
+      // default (DNS rebinding protection), which blocks any *.ngrok-free.app
+      // hostname outright.
+      allowedHosts: ['.ngrok-free.app', '.ngrok.app'],
       proxy: env.VITE_EXT_PROXY_URL
         ? {
             // The real FCC extension proxy (fce-veil-bid's ext-proxy) doesn't

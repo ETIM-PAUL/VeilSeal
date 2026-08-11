@@ -437,7 +437,7 @@ export default function NewBidDrawer({ opened, onClose, onCreate = () => {}, loc
                   onChange={(value) => set("deadline")(value ? new Date(value) : null)}
                   minDate={new Date()}
                   clearable
-                  description="Bids are sealed until this deadline, then revealed automatically"
+                  description="Bids are sealed until this deadline, then revealed after"
                 />
 
                 <Button

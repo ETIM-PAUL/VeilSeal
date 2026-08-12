@@ -11,16 +11,16 @@ export const VEIL_BIDDING_ABI = [{"type":"constructor","inputs":[{"name":"_teeEx
 // (title/description/type/ipfsHash/minBid/minScore/inviteOnly) is stored
 // on-chain - no off-chain index or localStorage cache required to render a listing.
 //
-// Redeployed 2026-08-03 to add Cipher Listings (contracts aren't upgradeable,
-// so adding new functions means a new address) - listings on the previous
-// address (0xdF5C10261e99617912E7bB4aeEFab35a0Ecdd963) are no longer reachable
-// from this app, though they still exist on-chain.
-const DEFAULT_ADDRESS = "0x9A0b1c0209eCa8417dCecf417b44187398613531";
+// Redeployed 2026-08-12 to reset to a clean listing slate (contracts aren't
+// upgradeable, so wiping state means a new address) - listings on the
+// previous address (0x9A0b1c0209eCa8417dCecf417b44187398613531) are no
+// longer reachable from this app, though they still exist on-chain.
+const DEFAULT_ADDRESS = "0x16b4abf6e8BF61477864233F37Bb58eb78379fcb";
 export const VEIL_BIDDING_ADDRESS = import.meta.env.VITE_VEILBIDDING_ADDRESS || DEFAULT_ADDRESS;
 
 // Block the contract was deployed at - scopes event queries so we don't scan
 // from genesis on every page load.
-export const DEPLOY_BLOCK = Number(import.meta.env.VITE_VEILBIDDING_DEPLOY_BLOCK || 33594964);
+export const DEPLOY_BLOCK = Number(import.meta.env.VITE_VEILBIDDING_DEPLOY_BLOCK || 33983228);
 
 // Mirrors the contract's MIN_SCORE_THRESHOLD/MAX_SCORE constants.
 export const MIN_SCORE_THRESHOLD = 5;

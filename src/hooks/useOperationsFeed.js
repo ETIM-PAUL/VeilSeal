@@ -1,21 +1,33 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { useBids } from "../context/useBids";
+import { useCipherListings } from "../context/useCipherListings";
 import { useWallet } from "../context/useWallet";
-import { fetchBidActivity, resolveBlockTimestamps } from "../contracts/VeilBidding";
-import { buildOperationsFeed } from "../utils/operations";
+import { fetchBidActivity, fetchCipherGuessActivity } from "../contracts/VeilBidding";
+import { buildOperationsFeed, buildCipherOperationsFeed } from "../utils/operations";
 
 /// Shared by the Operations page and Dashboard's activity feed/stat cards,
 /// so both read the exact same real on-chain data instead of each computing
-/// their own version - see buildOperationsFeed for what's actually in the
-/// feed (global bid activity + the connected wallet's own listings,
-/// standard listings only).
+/// their own version. Merges two on-chain-discoverable listing types -
+/// standard (buildOperationsFeed) and Cipher (buildCipherOperationsFeed) -
+/// into one feed; see those functions for what's actually in each half.
+/// Stealth listings are excluded from both by design (see
+/// buildOperationsFeed's comment).
+///
+/// Neither half passes real creation timestamps for "my own listings" rows
+/// (both fetchAllListings and fetchAllCipherListings read listings via
+/// listingCount()+listings(id)/cipherListings(id) view calls now rather than
+/// scanning ListingCreated/CipherListingCreated events, so blockNumber is
+/// always null - see contracts/VeilBidding.js). Those rows fall back to
+/// buildOperationsFeed/buildCipherOperationsFeed's "On-chain" display case.
 export function useOperationsFeed() {
   const { address } = useWallet();
   const { bids, loading: bidsLoading } = useBids();
+  const { listings: cipherListings, loading: cipherListingsLoading } = useCipherListings();
   const [activity, setActivity] = useState([]);
   const [activityLoading, setActivityLoading] = useState(true);
-  const [listingTimestamps, setListingTimestamps] = useState(new Map());
+  const [cipherActivity, setCipherActivity] = useState([]);
+  const [cipherActivityLoading, setCipherActivityLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
@@ -37,49 +49,32 @@ export function useOperationsFeed() {
     };
   }, []);
 
-  // Only resolves block timestamps for the connected wallet's own listings
-  // (a handful at most), not the whole marketplace - those are the only
-  // rows here that need a real creation time.
   useEffect(() => {
     let cancelled = false;
 
-    // Deferred a tick so every state update below happens post-await, never
-    // synchronously within the effect body.
-    Promise.resolve().then(async () => {
-      if (cancelled) return;
-
-      if (!address) {
-        setListingTimestamps(new Map());
-        return;
-      }
-
-      const mine = bids.filter(
-        (b) => b.creator?.toLowerCase() === address.toLowerCase() && b.blockNumber != null
-      );
-      if (mine.length === 0) {
-        setListingTimestamps(new Map());
-        return;
-      }
+    (async () => {
+      setCipherActivityLoading(true);
       try {
-        const byBlock = await resolveBlockTimestamps(mine.map((b) => b.blockNumber));
-        if (!cancelled) {
-          setListingTimestamps(new Map(mine.map((b) => [b.onChainListingId, byBlock.get(b.blockNumber)])));
-        }
+        const events = await fetchCipherGuessActivity();
+        if (!cancelled) setCipherActivity(events);
       } catch {
-        if (!cancelled) setListingTimestamps(new Map());
+        if (!cancelled) setCipherActivity([]);
+      } finally {
+        if (!cancelled) setCipherActivityLoading(false);
       }
-    });
+    })();
 
     return () => {
       cancelled = true;
     };
-  }, [bids, address]);
+  }, []);
 
-  const loading = bidsLoading || activityLoading;
-  const feed = useMemo(
-    () => buildOperationsFeed(bids, activity, address, listingTimestamps),
-    [bids, activity, address, listingTimestamps]
-  );
+  const loading = bidsLoading || activityLoading || cipherListingsLoading || cipherActivityLoading;
+  const feed = useMemo(() => {
+    const standard = buildOperationsFeed(bids, activity, address);
+    const cipher = buildCipherOperationsFeed(cipherListings, cipherActivity, address);
+    return [...standard, ...cipher].sort((a, b) => b.timestamp - a.timestamp);
+  }, [bids, activity, cipherListings, cipherActivity, address]);
 
   return { feed, loading };
 }

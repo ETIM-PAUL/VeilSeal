@@ -13,12 +13,11 @@ import { useOperationsFeed } from "../hooks/useOperationsFeed";
 import { PENDING_STATUSES, RESOLVED_STATUSES } from "../utils/operations";
 
 export default function Operations() {
-  // Bid activity (Sealed/Won/Lost/Withdrawn) is a global feed across every
-  // bidder - only the sealed amount is ever confidential, not who bid.
-  // "Listing" rows are the one part scoped to the connected wallet: listings
-  // it created. Both are standard-listing-only - see buildOperationsFeed's
-  // comment on why stealth listings never appear here. Shared with
-  // Dashboard's activity feed/stat cards - see useOperationsFeed.
+  // Every row here is scoped to the connected wallet - bids/guesses it
+  // placed, withdrawals it made, and listings it created. Covers standard
+  // and Cipher listings - see buildOperationsFeed's comment on why stealth
+  // listings never appear here. Shared with Dashboard's activity feed/stat
+  // cards - see useOperationsFeed.
   const { feed, loading } = useOperationsFeed();
 
   const [search, setSearch] = useState("");
@@ -58,15 +57,16 @@ export default function Operations() {
           <Title order={2}>Operations</Title>
 
           <Text className="caption" mt={4}>
-            Every sealed bid, reveal, and withdrawal across the marketplace, plus the listings
-            your connected wallet has created - sourced directly from on-chain activity processed
-            through Flare Confidential Compute.
+            Every sealed bid, guess, reveal, and withdrawal your connected wallet has made, plus
+            the listings it created - sourced directly from on-chain activity processed through
+            Flare Confidential Compute.
           </Text>
 
           <Text size="xs" className="ink-faint" mt={6}>
             <LuShieldCheck size={12} style={{ verticalAlign: "-1px", marginRight: 4 }} />
-            Standard listings only - stealth listings stay encrypted and undiscoverable by design,
-            so their bids and creation never appear here, even for the wallet that created them.
+            Standard and Cipher listings only - stealth listings stay encrypted and undiscoverable
+            by design, so their bids and creation never appear here, even for the wallet that
+            created them.
           </Text>
         </div>
 

@@ -17,7 +17,7 @@ export default function OperationDrawer({ opened, onClose, operation: liveOperat
   if (!operation) return null;
 
   const { current, failed } = getOperationProgress(operation);
-  const steps = [...OPERATION_STEPS, finalStepLabel(operation.status)];
+  const steps = [...OPERATION_STEPS, finalStepLabel(operation.status, operation.type)];
 
   return (
     <Drawer opened={opened} onClose={onClose} title="Confidential Operation" position="right" size="md">

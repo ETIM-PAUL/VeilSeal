@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { SimpleGrid, Grid, Stack, Title, Text, Button, Group } from "@mantine/core";
 
-import { LuGavel, LuLockKeyhole, LuPuzzle, LuActivity, LuHourglass, LuCheckCheck, LuShieldCheck } from "react-icons/lu";
+import { LuGavel, LuLockKeyhole, LuPuzzle, LuTrophy, LuListPlus, LuShieldCheck } from "react-icons/lu";
 
 import StatCard from "../components/dashboard/StatCard";
 import StatCardSkeleton from "../components/common/StatCardSkeleton";
@@ -15,14 +15,15 @@ import NewCipherListingDrawer from "../components/cipher/NewCipherListingDrawer"
 import { useBids } from "../context/useBids";
 import { useCipherListings } from "../context/useCipherListings";
 import { useOperationsFeed } from "../hooks/useOperationsFeed";
-import { PENDING_STATUSES, RESOLVED_STATUSES, activityTitle, operationsThisMonth } from "../utils/operations";
+import { activityTitle } from "../utils/operations";
 
 export default function Dashboard() {
   const { createListing } = useBids();
   const { createCipherListing } = useCipherListings();
   // Same real on-chain feed the Operations page reads - see
-  // useOperationsFeed/buildOperationsFeed for what's in it (global bid
-  // activity + the connected wallet's own listings, standard listings only).
+  // useOperationsFeed/buildOperationsFeed for what's in it (the connected
+  // wallet's own bid/guess activity and listings, covering standard and
+  // Cipher listings - stealth listings are excluded by design).
   const { feed, loading } = useOperationsFeed();
 
   const [scoreOpened, { open: openScore, close: closeScore }] = useDisclosure(false);
@@ -38,11 +39,22 @@ export default function Dashboard() {
     openNewBidDrawer();
   };
 
+  // "Bid"/"Guess" rows (won/bidded) come from fetchBidActivity/
+  // fetchCipherGuessActivity, both capped to a trailing 3-day block window
+  // (see contracts/VeilBidding.js's ACTIVITY_LOOKBACK_DAYS) - a bid/guess
+  // sealed further back than that has aged out of the feed entirely, even if
+  // it later won. "Listing"/"Cipher Listing" rows (created) have no such
+  // window - fetchAllListings/fetchAllCipherListings read every listing via
+  // listingCount()+listings(id)/cipherListings(id) view calls (see
+  // buildOperationsFeed's comment on why there's no creation timestamp to
+  // filter by anyway). All three are already wallet-scoped by
+  // buildOperationsFeed/buildCipherOperationsFeed and cover both Standard
+  // and Cipher listings (never Stealth - see the same comment).
   const stats = useMemo(
     () => ({
-      total: operationsThisMonth(feed).length,
-      pending: feed.filter((op) => PENDING_STATUSES.includes(op.status)).length,
-      resolved: feed.filter((op) => RESOLVED_STATUSES.includes(op.status)).length,
+      won: feed.filter((op) => (op.type === "Bid" || op.type === "Guess") && op.status === "Won").length,
+      created: feed.filter((op) => op.type === "Listing" || op.type === "Cipher Listing").length,
+      bidded: feed.filter((op) => op.type === "Bid" || op.type === "Guess").length,
     }),
     [feed]
   );
@@ -77,12 +89,21 @@ export default function Dashboard() {
             Array.from({ length: 3 }).map((_, i) => <StatCardSkeleton key={i} />)
           ) : (
             <>
-              <StatCard title="Total Operations" value={stats.total} icon={LuActivity} description="This month" />
-              <StatCard title="Pending" value={stats.pending} icon={LuHourglass} description="Sealed or awaiting reveal" />
-              <StatCard title="Resolved" value={stats.resolved} icon={LuCheckCheck} description="Won, lost, withdrawn, or revealed" />
+              <StatCard title="Listings Won" value={stats.won} icon={LuTrophy} description="Standard + Cipher · Last 3 days" />
+              <StatCard title="Total Bidded" value={stats.bidded} icon={LuGavel} description="Standard + Cipher · Last 3 days" />
+              <StatCard title="Listings Created" value={stats.created} icon={LuListPlus} description="Standard + Cipher · All time" />
             </>
           )}
         </SimpleGrid>
+
+        <Text size="xs" className="ink-faint" mt={-10}>
+          <LuShieldCheck size={12} style={{ verticalAlign: "-1px", marginRight: 4 }} />
+          "Won" and "Bidded" only cover the last 3 days - sealed bids/guesses older than that age
+          out of the feed even if later revealed as a win. "Created" has no such window (there's no
+          reliable creation timestamp to filter by) and reflects all time. All three are your
+          connected wallet only, across Standard and Cipher listings - Stealth listings stay
+          encrypted and undiscoverable by design, so they never appear here.
+        </Text>
 
         <Grid>
           <Grid.Col span={{ base: 12, md: 8 }}>

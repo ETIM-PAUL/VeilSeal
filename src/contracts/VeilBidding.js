@@ -206,16 +206,6 @@ export async function fetchAllListings() {
   }));
 }
 
-/// Resolves the block timestamp (ms epoch) for each given block number,
-/// deduped so a block referenced by several events only costs one RPC call.
-/// Shared by fetchBidActivity and Operations' "listings I created" rows.
-export async function resolveBlockTimestamps(blockNumbers) {
-  const provider = getReadOnlyProvider();
-  const uniqueBlocks = [...new Set(blockNumbers)];
-  const blocks = await Promise.all(uniqueBlocks.map((n) => provider.getBlock(n)));
-  return new Map(uniqueBlocks.map((n, i) => [n, Number(blocks[i]?.timestamp ?? 0) * 1000]));
-}
-
 // Scoped by contract address + schema version so a redeploy never merges
 // stale cached events with a different contract's/schema's data.
 const BID_ACTIVITY_CACHE_KEY = `veilseal:bid-activity-cache:v1:${VEIL_BIDDING_ADDRESS}`;
@@ -305,6 +295,61 @@ export async function fetchBidActivity() {
 
   const merged = [...cachedEvents, ...newEvents];
   saveBidActivityCache({ lastBlock: currentBlock, events: merged });
+
+  return merged;
+}
+
+// Scoped by contract address + schema version, same reasoning as
+// BID_ACTIVITY_CACHE_KEY.
+const CIPHER_GUESS_ACTIVITY_CACHE_KEY = `veilseal:cipher-guess-activity-cache:v1:${VEIL_BIDDING_ADDRESS}`;
+
+function loadCipherGuessActivityCache() {
+  try {
+    return JSON.parse(localStorage.getItem(CIPHER_GUESS_ACTIVITY_CACHE_KEY)) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function saveCipherGuessActivityCache(cache) {
+  localStorage.setItem(CIPHER_GUESS_ACTIVITY_CACHE_KEY, JSON.stringify(cache));
+}
+
+/// Discovers CipherGuessSealed activity over the last ACTIVITY_LOOKBACK_DAYS
+/// - mirrors fetchBidActivity (same lookback window, cache, and bounded-
+/// concurrency chunked scan), for the Operations/Dashboard feed's Cipher
+/// Listings support. Unlike standard bids, there's no cancel/withdraw path
+/// for a sealed cipher guess (submitCipherGuess has no counterpart to
+/// cancelSealedBid), so there's only one event kind to scan here.
+export async function fetchCipherGuessActivity() {
+  const contract = getReadOnlyContract();
+  const provider = getReadOnlyProvider();
+  const currentBlock = await provider.getBlockNumber();
+  const windowStart = Math.max(DEPLOY_BLOCK, currentBlock - ACTIVITY_LOOKBACK_BLOCKS);
+
+  const cache = loadCipherGuessActivityCache();
+  const fromBlock = cache && cache.lastBlock >= windowStart ? cache.lastBlock + 1 : windowStart;
+  const cachedEvents = (cache?.events ?? []).filter((e) => e.blockNumber >= windowStart);
+
+  let newEvents = [];
+  if (fromBlock <= currentBlock) {
+    const sealed = await queryLogsChunked(contract, contract.filters.CipherGuessSealed(), fromBlock, currentBlock);
+
+    const raw = sealed.map((e) => ({
+      listingId: e.args.listingId.toString(),
+      guesser: e.args.guesser,
+      txHash: e.transactionHash,
+      blockNumber: e.blockNumber,
+    }));
+
+    const uniqueBlocks = [...new Set(raw.map((e) => e.blockNumber))];
+    const blocks = await Promise.all(uniqueBlocks.map((n) => provider.getBlock(n)));
+    const timestampByBlock = new Map(uniqueBlocks.map((n, i) => [n, Number(blocks[i]?.timestamp ?? 0)]));
+    newEvents = raw.map((e) => ({ ...e, timestamp: timestampByBlock.get(e.blockNumber) ?? 0 }));
+  }
+
+  const merged = [...cachedEvents, ...newEvents];
+  saveCipherGuessActivityCache({ lastBlock: currentBlock, events: merged });
 
   return merged;
 }

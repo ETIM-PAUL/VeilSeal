@@ -573,7 +573,7 @@ export default function NewBidDrawer({ opened, onClose, onCreate = () => {}, loc
               <>
                 <Text ta="center" c="dimmed" maw={420}>
                   This listing's details are encrypted on-chain. Share the hashed ID
-                  below with invited bidders directly - it's the only way anyone can
+                  below with invited bidders directly - it's the only way they can
                   find or view this listing.
                 </Text>
 

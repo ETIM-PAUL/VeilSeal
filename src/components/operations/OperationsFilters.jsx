@@ -2,7 +2,17 @@ import { Group, Select, TextInput } from "@mantine/core";
 import { LuSearch, LuFilter } from "react-icons/lu";
 
 const TYPE_OPTIONS = ["All", "Bid", "Listing", "Guess", "Cipher Listing"];
-const DEFAULT_STATUS_OPTIONS = ["All", "Sealed", "Won", "Lost", "Withdrawn", "Open", "Awaiting Reveal", "Revealed"];
+const DEFAULT_STATUS_OPTIONS = [
+  "All",
+  "Sealed",
+  "Won",
+  "Lost",
+  "Withdrawn",
+  "Open",
+  "Awaiting Reveal",
+  "Revealed",
+  "No Bids",
+];
 
 export default function OperationsFilters({
   search,

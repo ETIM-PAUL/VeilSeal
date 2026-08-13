@@ -10,6 +10,7 @@ export default function BidCard({ bid, onOpen }) {
   const revealed = isRevealed(bid);
   const winner = revealed ? resolveWinner(bid) : null;
   const iWon = winner?.mine;
+  const bidderCount = bid.participants.filter((p) => !p.withdrawn).length;
 
   return (
     <div
@@ -43,13 +44,19 @@ export default function BidCard({ bid, onOpen }) {
 
         <div style={{ textAlign: "right" }}>
           <div className="label-micro">
-            {status === "Open" ? formatCountdown(bid.deadline) : revealed ? "Revealed" : "Awaiting Reveal"}
+            {status === "Open"
+              ? formatCountdown(bid.deadline)
+              : revealed
+                ? "Revealed"
+                : bidderCount === 0
+                  ? "No Bids"
+                  : "Awaiting Reveal"}
           </div>
 
           <Group gap={4} justify="flex-end" mt={2}>
             <LuUsers size={12} className="ink-faint" />
             <Text size="xs" className="ink-dim num">
-              {bid.participants.filter((p) => !p.withdrawn).length}
+              {bidderCount}
             </Text>
           </Group>
         </div>

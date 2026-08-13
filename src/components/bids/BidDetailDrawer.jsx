@@ -21,6 +21,18 @@ import { requestAndRelayReveal } from "../../lib/tee/reveal";
 import { isProxyConfigured } from "../../lib/tee/proxy";
 import { useWallet } from "../../context/useWallet";
 
+// The TEE returns its raw internal error string verbatim (see
+// internal/extension/extension.go) - map the ones users can actually hit
+// (nothing sealed before the deadline) to a properly-cased message instead
+// of showing Go's lowercase, unpunctuated log line.
+const KNOWN_REVEAL_ERRORS = {
+  "no sealed bids to reveal": "No sealed bids to reveal.",
+};
+
+function formatRevealError(message) {
+  return KNOWN_REVEAL_ERRORS[message] ?? message;
+}
+
 function parseParticipants(raw) {
   return raw
     .split(/[\s,]+/)
@@ -264,14 +276,20 @@ export default function BidDetailDrawer({ opened, onClose, bid: liveBid, onPlace
 
             {!onChainLoading && onChainData && !onChainData.revealed && (
               <Stack gap={8}>
-                <Text size="xs" className="ink-dim">
-                  Sealed bids are committed on Coston2. Once the deadline
-                  passes, anyone can trigger the reveal - it routes every
-                  sealed bid to the registered TEE, which decrypts them,
-                  determines the winner, and signs the result.
-                </Text>
+                {status === "Closed" && sorted.length === 0 ? (
+                  <Text size="xs" className="ink-dim">
+                    No sealed bids were submitted before the deadline - there&apos;s nothing to reveal.
+                  </Text>
+                ) : (
+                  <Text size="xs" className="ink-dim">
+                    Sealed bids are committed on Coston2. Once the deadline
+                    passes, anyone can trigger the reveal - it routes every
+                    sealed bid to the registered TEE, which decrypts them,
+                    determines the winner, and signs the result.
+                  </Text>
+                )}
 
-                {status === "Closed" && isProxyConfigured() && (
+                {status === "Closed" && sorted.length > 0 && isProxyConfigured() && (
                   <Button
                     size="xs"
                     variant="light"
@@ -285,7 +303,7 @@ export default function BidDetailDrawer({ opened, onClose, bid: liveBid, onPlace
 
                 {revealError && (
                   <Text size="xs" style={{ color: "var(--danger)" }}>
-                    {revealError}
+                    {formatRevealError(revealError)}
                   </Text>
                 )}
               </Stack>

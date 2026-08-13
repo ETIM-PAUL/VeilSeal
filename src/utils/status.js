@@ -18,6 +18,7 @@ export const STATUS_COLOR = {
   Withdrawn: "slate",
   "Awaiting Reveal": "amber",
   Revealed: "signal",
+  "No Bids": "slate",
 };
 
 export function statusColor(status) {

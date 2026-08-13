@@ -11,7 +11,7 @@ export const OPERATION_STEPS = [
 // Shared by the Operations page and Dashboard's stat cards, so "Pending"/
 // "Resolved" mean exactly the same thing in both places.
 export const PENDING_STATUSES = ["Sealed", "Open", "Awaiting Reveal"];
-export const RESOLVED_STATUSES = ["Won", "Lost", "Withdrawn", "Revealed"];
+export const RESOLVED_STATUSES = ["Won", "Lost", "Withdrawn", "Revealed", "No Bids"];
 
 // Maps a real on-chain status to how far the 5-step pipeline above has
 // progressed. `current` is the index of the step still in progress
@@ -29,6 +29,7 @@ const STEP_BY_STATUS = {
   Open: 1,
   "Awaiting Reveal": 3,
   Revealed: 6,
+  "No Bids": 6,
 };
 
 export function getOperationProgress(operation) {
@@ -40,6 +41,7 @@ export function getOperationProgress(operation) {
 
 export function finalStepLabel(status, type) {
   if (status === "Withdrawn") return "Bid Withdrawn";
+  if (status === "No Bids") return "No Bids Submitted";
   if (status === "Open" || status === "Awaiting Reveal" || status === "Revealed") return "Listing Revealed";
   return type === "Guess" ? "Guess Resolved" : "Bid Resolved";
 }
@@ -51,11 +53,13 @@ export function activityTitle(op) {
   if (op.type === "Listing") {
     if (op.status === "Open") return `Listing "${op.party}" opened for bidding`;
     if (op.status === "Awaiting Reveal") return `Listing "${op.party}" awaiting reveal`;
+    if (op.status === "No Bids") return `Listing "${op.party}" closed with no bids`;
     return `Listing "${op.party}" revealed`;
   }
   if (op.type === "Cipher Listing") {
     if (op.status === "Open") return `Cipher listing "${op.party}" opened for guessing`;
     if (op.status === "Awaiting Reveal") return `Cipher listing "${op.party}" awaiting reveal`;
+    if (op.status === "No Bids") return `Cipher listing "${op.party}" closed with no guesses`;
     return `Cipher listing "${op.party}" revealed`;
   }
   if (op.type === "Guess") {
@@ -167,7 +171,15 @@ export function buildOperationsFeed(bids, activity, wallet, listingTimestamps = 
         .map((bid) => {
           const revealed = isRevealed(bid);
           const winner = revealed ? resolveWinner(bid) : null;
-          const status = getBidStatus(bid) === "Open" ? "Open" : revealed ? "Revealed" : "Awaiting Reveal";
+          const bidderCount = bid.participants.filter((p) => !p.withdrawn).length;
+          const status =
+            getBidStatus(bid) === "Open"
+              ? "Open"
+              : revealed
+                ? "Revealed"
+                : bidderCount === 0
+                  ? "No Bids"
+                  : "Awaiting Reveal";
           const timestampMs = listingTimestamps.get(bid.onChainListingId);
 
           return {
@@ -247,7 +259,14 @@ export function buildCipherOperationsFeed(cipherListings, cipherActivity, wallet
         .filter((listing) => listing.creator?.toLowerCase() === normalizedWallet)
         .map((listing) => {
           const revealed = Boolean(listing.revealed);
-          const status = getBidStatus(listing) === "Open" ? "Open" : revealed ? "Revealed" : "Awaiting Reveal";
+          const status =
+            getBidStatus(listing) === "Open"
+              ? "Open"
+              : revealed
+                ? "Revealed"
+                : listing.guesserCount === 0
+                  ? "No Bids"
+                  : "Awaiting Reveal";
           const timestampMs = listingTimestamps.get(listing.onChainListingId);
 
           return {

@@ -335,9 +335,9 @@ export default function StealthListings() {
           ) : (
             <Stack gap={8}>
               <Text size="sm" className="ink-dim">
-                Bidding closed. Anyone can trigger the reveal - it routes every sealed bid to
+                Bidding closed. Any participant can trigger the reveal - it routes every sealed bid to
                 the registered TEE, which decrypts them, determines the winner, and signs the
-                result. The listing's other details stay encrypted regardless.
+                result. The listing's details stay encrypted regardless.
               </Text>
 
               <Button

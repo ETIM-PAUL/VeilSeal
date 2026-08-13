@@ -15,6 +15,7 @@ import {
   INSTRUCTION_FEE_WEI,
 } from "../../contracts/VeilBidding";
 import { truncateAddress, explorerTxUrl } from "../../utils/network";
+import { ipfsGatewayUrl } from "../../lib/pinata";
 import { fromChainAmount } from "../../utils/sealedBid";
 import { requestAndRelayReveal } from "../../lib/tee/reveal";
 import { isProxyConfigured } from "../../lib/tee/proxy";
@@ -200,9 +201,21 @@ export default function BidDetailDrawer({ opened, onClose, bid: liveBid, onPlace
           </Group>
         )}
 
-        <Text size="xs" className="ink-faint num" style={{ wordBreak: "break-all" }}>
-          IPFS: {bid.ipfsHash}
-        </Text>
+        {bid.ipfsHash && (
+          <Anchor
+            href={ipfsGatewayUrl(bid.ipfsHash)}
+            target="_blank"
+            rel="noreferrer"
+            size="xs"
+            className="num"
+            style={{ wordBreak: "break-all" }}
+          >
+            <Group gap={4} wrap="nowrap">
+              <span>IPFS: {bid.ipfsHash}</span>
+              <LuExternalLink size={11} style={{ flexShrink: 0 }} />
+            </Group>
+          </Anchor>
+        )}
 
         {onChainListingId && (
           <div className="panel" style={{ padding: 14 }}>

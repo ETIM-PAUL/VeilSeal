@@ -18,6 +18,7 @@ import {
   INSTRUCTION_FEE_WEI,
 } from "../../contracts/VeilBidding";
 import { truncateAddress, explorerTxUrl } from "../../utils/network";
+import { ipfsGatewayUrl } from "../../lib/pinata";
 import { requestAndRelayCipherReveal } from "../../lib/tee/reveal";
 import { isProxyConfigured } from "../../lib/tee/proxy";
 import { useWallet } from "../../context/useWallet";
@@ -190,6 +191,22 @@ export default function CipherListingDetailDrawer({ opened, onClose, listing: li
             {listing.words.join(", ")}
           </Text>
         </div>
+
+        {listing.ipfsHash && (
+          <Anchor
+            href={ipfsGatewayUrl(listing.ipfsHash)}
+            target="_blank"
+            rel="noreferrer"
+            size="xs"
+            className="num"
+            style={{ wordBreak: "break-all" }}
+          >
+            <Group gap={4} wrap="nowrap">
+              <span>IPFS: {listing.ipfsHash}</span>
+              <LuExternalLink size={11} style={{ flexShrink: 0 }} />
+            </Group>
+          </Anchor>
+        )}
 
         <Group grow>
           <div className="panel" style={{ padding: 14 }}>

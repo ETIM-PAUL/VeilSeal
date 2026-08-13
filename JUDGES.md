@@ -1,3 +1,5 @@
+<img src="public/readme-icon.png" width="72" height="72" alt="VeilSeal" />
+
 # Testing VeilSeal — a guide for judges
 
 VeilSeal doesn't need a permanently-running server to evaluate: the frontend runs locally against a **contract already deployed on Coston2**, and the confidential-compute (TEE) side of the flow is captured in the demo video, since that piece needs a Docker/tunnel stack we don't keep running 24/7 (see "What needs the TEE stack live" below).
@@ -8,7 +10,7 @@ VeilSeal doesn't need a permanently-running server to evaluate: the frontend run
 
 ## What's already live, no setup required
 
-- **Contract**: `VeilBidding` at [`0x16b4abf6e8BF61477864233F37Bb58eb78379fcb`](https://coston2-explorer.flare.network/address/0x16b4abf6e8BF61477864233F37Bb58eb78379fcb) on **Flare Coston2** — registered against the live `FlareTeeManager` (`0x1a9C4A0f9D76c0b1D91d22E24E573a9b377618aE`). This address is baked into the frontend as the default ([`src/contracts/VeilBidding.js`](src/contracts/VeilBidding.js)), so no `.env` contract address is needed to browse listings, read history, or inspect state.
+- **Contract**: `VeilBidding` at [`0x24ED14dD614B8D956eE81d2B73EF040989034980`](https://coston2-explorer.flare.network/address/0x24ED14dD614B8D956eE81d2B73EF040989034980) on **Flare Coston2** — registered against the live `FlareTeeManager` (`0x1a9C4A0f9D76c0b1D91d22E24E573a9b377618aE`). This address is baked into the frontend as the default ([`src/contracts/VeilBidding.js`](src/contracts/VeilBidding.js)), so no `.env` contract address is needed to browse listings, read history, or inspect state.
 - All listing metadata (title, description, item type, minimum bid/score, invite lists) lives directly in contract storage — anyone can verify what's shown in the UI actually matches on-chain state via the block explorer link above, independent of our frontend.
 
 ## Run the frontend locally (~5 minutes)

@@ -1,4 +1,4 @@
-import { Stack, Text, Group } from "@mantine/core";
+import { Stack, Text, Group, Image } from "@mantine/core";
 
 import {
   LuLayoutDashboard,
@@ -6,7 +6,6 @@ import {
   LuLockKeyhole,
   LuPuzzle,
   LuActivity,
-  LuShieldCheck,
   LuBot,
 } from "react-icons/lu";
 
@@ -44,7 +43,7 @@ export default function Sidebar() {
         className="hairline-bottom"
         wrap="nowrap"
       >
-        <LuShieldCheck size={20} color="var(--signal)" />
+        <Image src="/favicon-32.png" alt="" w={22} h={22} radius={4} />
 
         <div>
           <Text

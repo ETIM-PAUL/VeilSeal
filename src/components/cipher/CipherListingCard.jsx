@@ -38,7 +38,13 @@ export default function CipherListingCard({ listing, onOpen }) {
 
         <div style={{ textAlign: "right" }}>
           <div className="label-micro">
-            {status === "Open" ? formatCountdown(listing.deadline) : listing.revealed ? "Revealed" : "Awaiting Reveal"}
+            {status === "Open"
+              ? formatCountdown(listing.deadline)
+              : listing.revealed
+                ? "Revealed"
+                : listing.guesserCount === 0
+                  ? "No Bids"
+                  : "Awaiting Reveal"}
           </div>
 
           <Group gap={4} justify="flex-end" mt={2}>

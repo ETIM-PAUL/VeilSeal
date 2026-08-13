@@ -1,3 +1,5 @@
+<img src="public/readme-icon.png" width="72" height="72" alt="VeilSeal" />
+
 # VeilSeal
 
 VeilSeal is a confidential auction platform built on **Flare Confidential Compute (FCC)**. Bidders commit an encrypted, sealed amount on-chain; a TEE only decrypts sealed bids after a listing's deadline, determines the winner, and signs the result for on-chain verification — so nobody, including VeilSeal itself, ever sees a bid amount before it's revealed.

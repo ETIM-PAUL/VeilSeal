@@ -23,6 +23,18 @@ import { isProxyConfigured } from "../../lib/tee/proxy";
 import { useWallet } from "../../context/useWallet";
 import CipherRevealResult from "./CipherRevealResult";
 
+// The TEE returns its raw internal error string verbatim (see
+// internal/extension/extension.go) - map the ones users can actually hit
+// (nothing sealed before the deadline) to a properly-cased message instead
+// of showing Go's lowercase, unpunctuated log line.
+const KNOWN_REVEAL_ERRORS = {
+  "no sealed guesses to reveal": "No sealed guesses to reveal.",
+};
+
+function formatRevealError(message) {
+  return KNOWN_REVEAL_ERRORS[message] ?? message;
+}
+
 function parseParticipants(raw) {
   return raw
     .split(/[\s,]+/)
@@ -243,14 +255,20 @@ export default function CipherListingDetailDrawer({ opened, onClose, listing: li
 
             {!onChainLoading && onChainData && !onChainData.revealed && (
               <Stack gap={8}>
-                <Text size="xs" className="ink-dim">
-                  Sealed guesses are committed on Coston2. Once the deadline
-                  passes, anyone can trigger the reveal - the TEE generates
-                  its true arrangement fresh, scores every guess, and signs
-                  the result.
-                </Text>
+                {status === "Closed" && guessers.length === 0 ? (
+                  <Text size="xs" className="ink-dim">
+                    No sealed guesses were submitted before the deadline - there&apos;s nothing to reveal.
+                  </Text>
+                ) : (
+                  <Text size="xs" className="ink-dim">
+                    Sealed guesses are committed on Coston2. Once the deadline
+                    passes, anyone can trigger the reveal - the TEE generates
+                    its true arrangement fresh, scores every guess, and signs
+                    the result.
+                  </Text>
+                )}
 
-                {status === "Closed" && isProxyConfigured() && (
+                {status === "Closed" && guessers.length > 0 && isProxyConfigured() && (
                   <Button
                     size="xs"
                     variant="light"
@@ -264,7 +282,7 @@ export default function CipherListingDetailDrawer({ opened, onClose, listing: li
 
                 {revealError && (
                   <Text size="xs" style={{ color: "var(--danger)" }}>
-                    {revealError}
+                    {formatRevealError(revealError)}
                   </Text>
                 )}
               </Stack>
@@ -336,7 +354,7 @@ export default function CipherListingDetailDrawer({ opened, onClose, listing: li
         <Stack gap={0}>
           {guessers.length === 0 && (
             <Text className="caption" py="md">
-              No sealed guesses submitted yet.
+              No sealed guesses submitted.
             </Text>
           )}
 

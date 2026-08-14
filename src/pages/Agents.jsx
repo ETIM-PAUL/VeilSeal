@@ -195,7 +195,7 @@ export default function Agents() {
       <div>
         <Title order={2}>Auto-Bidding Agent</Title>
         <Text className="caption" mt={4}>
-          Bids automatically on standard and invite-only listings matching your criteria - checks once a day, or on demand.
+          Bids automatically on standard listings matching your criteria - invite-only or score-gated - checks once a day, or on demand.
         </Text>
       </div>
 

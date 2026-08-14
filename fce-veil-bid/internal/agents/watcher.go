@@ -6,6 +6,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math/big"
 	"strings"
@@ -138,7 +139,7 @@ func (w *Watcher) evaluate(ctx context.Context, r *Record) (string, int, error) 
 		return "", 0, fmt.Errorf("reading listingCount: %w", err)
 	}
 
-	placed, overBudget, alreadyBidCount, notEligible := 0, 0, 0, 0
+	placed, overBudget, alreadyBidCount, notEligible, scoreRejected, failed := 0, 0, 0, 0, 0, 0
 	for i := int64(1); i <= count.Int64(); i++ {
 		id := big.NewInt(i)
 		listing, err := getListing(ctx, w.chainClient, w.instructionSender, id)
@@ -167,41 +168,61 @@ func (w *Watcher) evaluate(ctx context.Context, r *Record) (string, int, error) 
 			continue
 		}
 
-		if err := w.placeBid(ctx, wallet, r, id, bidAmount); err != nil {
+		if err := w.placeBid(ctx, wallet, r, listing, id, bidAmount); err != nil {
+			if errors.Is(err, errScoreRejected) {
+				scoreRejected++
+			} else {
+				failed++
+			}
 			logger.Errorf("agent %s: listing %d: %v", r.Wallet, i, err)
 			continue
 		}
 		placed++
 	}
 
-	// Every listing lands in exactly one bucket (or was unreadable, logged
-	// above) - nothing should silently vanish from this summary.
+	// Every listing lands in exactly one bucket - nothing should silently
+	// vanish from this summary.
 	outcome := fmt.Sprintf(
-		"bids placed: %d, already bid: %d, over max amount: %d, not eligible: %d",
-		placed, alreadyBidCount, overBudget, notEligible,
+		"bids placed: %d, already bid: %d, over max amount: %d, not eligible: %d, score check failed: %d, failed: %d",
+		placed, alreadyBidCount, overBudget, notEligible, scoreRejected, failed,
 	)
 	return outcome, placed, nil
 }
 
 const reasonAlreadyBid = "already bid"
 
+// errScoreRejected marks a placeBid failure that happened because the TEE's
+// score check itself came back ineligible (score or bid amount below the
+// listing's threshold) - distinct from a structural mismatch (matchReason)
+// or an unrelated failure (decrypt error, tx revert), so the run summary can
+// report it separately.
+var errScoreRejected = errors.New("score check rejected")
+
 // matchReason returns "" when the listing is a match, otherwise a
 // human-readable reason it was skipped (also used for per-listing logging).
+// Score-gated (non-invite-only) listings are only checked structurally here
+// (deadline/revealed/already-bid/keyword/itemType) - whether the wallet's
+// actual score clears the threshold can only be answered by the TEE, via
+// requestEligibilityAttestation at bid time (see evaluate/placeBid below),
+// not by a free view call.
 func (w *Watcher) matchReason(ctx context.Context, listing *Listing, id *big.Int, wallet common.Address, r *Record) string {
-	if !listing.InviteOnly || listing.Revealed {
-		return fmt.Sprintf("not invite-only (inviteOnly=%v) or already revealed (revealed=%v)", listing.InviteOnly, listing.Revealed)
+	if listing.Revealed {
+		return "already revealed"
 	}
 	if uint64(time.Now().Unix()) >= listing.Deadline {
 		return "deadline passed"
 	}
 
-	invited, err := isParticipant(ctx, w.chainClient, w.instructionSender, id, wallet)
-	if err != nil {
-		return fmt.Sprintf("isParticipant error: %v", err)
+	if listing.InviteOnly {
+		invited, err := isParticipant(ctx, w.chainClient, w.instructionSender, id, wallet)
+		if err != nil {
+			return fmt.Sprintf("isParticipant error: %v", err)
+		}
+		if !invited {
+			return "not invited"
+		}
 	}
-	if !invited {
-		return "not invited"
-	}
+
 	already, err := alreadyBid(ctx, w.chainClient, w.instructionSender, id, wallet)
 	if err != nil {
 		return fmt.Sprintf("sealedBids error: %v", err)
@@ -225,10 +246,11 @@ func heuristicBid(minBid *big.Int) *big.Int {
 	return new(big.Int).Add(minBid, margin)
 }
 
-// placeBid decrypts the wallet's stored key just long enough to sign one
-// transaction, then scrubs it - the plaintext key never touches disk and
-// isn't retained in the Record.
-func (w *Watcher) placeBid(ctx context.Context, wallet common.Address, r *Record, listingId, amount *big.Int) error {
+// placeBid decrypts the wallet's stored key just long enough to sign one or
+// two transactions (an extra requestScoreCheck first, for score-gated
+// listings), then scrubs it - the plaintext key never touches disk and isn't
+// retained in the Record.
+func (w *Watcher) placeBid(ctx context.Context, wallet common.Address, r *Record, listing *Listing, listingId, amount *big.Int) error {
 	ciphertext, err := hex.DecodeString(strings.TrimPrefix(r.EncryptedPrivateKey, "0x"))
 	if err != nil {
 		return fmt.Errorf("decoding stored key ciphertext: %w", err)
@@ -271,7 +293,18 @@ func (w *Watcher) placeBid(ctx context.Context, wallet common.Address, r *Record
 		return fmt.Errorf("encrypting bid terms: %w", err)
 	}
 
-	txHash, err := submitSealedBidAs(ctx, w.chainClient, w.instructionSender, w.chainID, key, listingId, [32]byte(termsCommitment), encryptedTerms)
+	// Score-gated listings need a real, TEE-verified EligibilityAttestation
+	// bound to this exact termsCommitment - invite-only listings send the
+	// zero value, which submitSealedBid never inspects for them.
+	var attestation attestationT
+	if !listing.InviteOnly {
+		attestation, err = w.requestEligibilityAttestation(ctx, key, listingId, [32]byte(termsCommitment), encryptedTerms)
+		if err != nil {
+			return fmt.Errorf("%w: %v", errScoreRejected, err)
+		}
+	}
+
+	txHash, err := submitSealedBidAs(ctx, w.chainClient, w.instructionSender, w.chainID, key, listingId, [32]byte(termsCommitment), encryptedTerms, attestation)
 	if err != nil {
 		return fmt.Errorf("submitSealedBid: %w", err)
 	}

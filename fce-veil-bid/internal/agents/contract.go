@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"errors"
+	"fmt"
 	"math/big"
 	"strings"
 
@@ -62,8 +63,25 @@ const watcherABIJSON = `[
 			{"name":"status","type":"uint8"},
 			{"name":"signature","type":"bytes"}
 		]}
-	 ],"outputs":[]}
+	 ],"outputs":[]},
+	{"type":"function","name":"requestScoreCheck","stateMutability":"payable",
+	 "inputs":[
+		{"name":"_listingId","type":"uint256"},
+		{"name":"_termsCommitment","type":"bytes32"},
+		{"name":"_encryptedTerms","type":"bytes"}
+	 ],"outputs":[{"name":"instructionId","type":"bytes32"}]},
+	{"type":"event","name":"ScoreCheckRequested","anonymous":false,
+	 "inputs":[
+		{"name":"listingId","type":"uint256","indexed":true},
+		{"name":"bidder","type":"address","indexed":true},
+		{"name":"instructionId","type":"bytes32","indexed":false}
+	 ]}
 ]`
+
+// instructionFeeWei is the wei value forwarded to sendInstructions for every
+// FCC instruction - mirrors tools/pkg/utils.DefaultFee and the frontend's
+// INSTRUCTION_FEE_WEI (src/contracts/VeilBidding.js).
+var instructionFeeWei = big.NewInt(1_000_000_000_000)
 
 var watcherABI abi.ABI
 
@@ -91,11 +109,11 @@ type Listing struct {
 	InviteOnly    bool
 }
 
-// emptyAttestation mirrors the Solidity EligibilityAttestation tuple -
-// invite-only listings (the only kind v1 agents bid on) never check it, so
-// the agent always sends it zeroed, same as a human bidder would for a
-// non-score-gated listing.
-type emptyAttestationT struct {
+// attestationT mirrors the Solidity EligibilityAttestation tuple. Invite-only
+// listings never check it, so callers pass the zero value there, same as a
+// human bidder would for a non-score-gated listing; score-gated listings
+// pass the real TEE-signed result from requestEligibilityAttestation.
+type attestationT struct {
 	Data          []byte
 	ActionId      [32]byte
 	SubmissionTag string
@@ -173,6 +191,7 @@ func submitSealedBidAs(
 	listingId *big.Int,
 	termsCommitment [32]byte,
 	encryptedTerms []byte,
+	attestation attestationT,
 ) (common.Hash, error) {
 	auth, err := bind.NewKeyedTransactorWithChainID(key, chainID)
 	if err != nil {
@@ -181,7 +200,7 @@ func submitSealedBidAs(
 	auth.Context = ctx
 
 	bound := bind.NewBoundContract(contractAddr, watcherABI, client, client, client)
-	tx, err := bound.Transact(auth, "submitSealedBid", listingId, termsCommitment, encryptedTerms, emptyAttestationT{})
+	tx, err := bound.Transact(auth, "submitSealedBid", listingId, termsCommitment, encryptedTerms, attestation)
 	if err != nil {
 		return common.Hash{}, err
 	}
@@ -194,4 +213,49 @@ func submitSealedBidAs(
 		return tx.Hash(), errReverted
 	}
 	return tx.Hash(), nil
+}
+
+// requestScoreCheckTx signs and sends requestScoreCheck using key directly -
+// the request must come from the bidder's own wallet, since the resulting
+// EligibilityAttestation is bound to msg.sender. Returns the instructionId
+// from the ScoreCheckRequested event so the caller can poll ext-proxy for
+// the TEE's signed verdict.
+func requestScoreCheckTx(
+	ctx context.Context,
+	client *ethclient.Client,
+	contractAddr common.Address,
+	chainID *big.Int,
+	key *ecdsa.PrivateKey,
+	listingId *big.Int,
+	termsCommitment [32]byte,
+	encryptedTerms []byte,
+) (common.Hash, error) {
+	auth, err := bind.NewKeyedTransactorWithChainID(key, chainID)
+	if err != nil {
+		return common.Hash{}, err
+	}
+	auth.Context = ctx
+	auth.Value = instructionFeeWei
+
+	bound := bind.NewBoundContract(contractAddr, watcherABI, client, client, client)
+	tx, err := bound.Transact(auth, "requestScoreCheck", listingId, termsCommitment, encryptedTerms)
+	if err != nil {
+		return common.Hash{}, err
+	}
+
+	receipt, err := bind.WaitMined(ctx, client, tx)
+	if err != nil {
+		return common.Hash{}, err
+	}
+	if receipt.Status != types.ReceiptStatusSuccessful {
+		return common.Hash{}, errReverted
+	}
+
+	topic := watcherABI.Events["ScoreCheckRequested"].ID
+	for _, log := range receipt.Logs {
+		if log.Address == contractAddr && len(log.Topics) > 0 && log.Topics[0] == topic && len(log.Data) >= 32 {
+			return common.BytesToHash(log.Data[len(log.Data)-32:]), nil
+		}
+	}
+	return common.Hash{}, fmt.Errorf("ScoreCheckRequested event not found in receipt")
 }

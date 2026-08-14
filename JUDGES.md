@@ -6,7 +6,9 @@ VeilSeal doesn't need a permanently-running server to evaluate: the frontend run
 
 ## Demo video
 
-[DEMO VIDEO LINK] — walks through creating a listing, sealing a bid, and the TEE-verified reveal for all three listing types.
+**[Watch the demo](https://app.screencastify.com/manage/videos/iXAkazqNssRWMT8L9KSU)** — walks through creating a listing, sealing a bid, and the TEE-verified reveal for all three listing types.
+
+Want to try it yourself instead of just watching? Skip to [Run the frontend locally](#run-the-frontend-locally-5-minutes) below — it's a `git clone` + `npm install` + `npm run dev` away, no `.env` required to start browsing real on-chain listings.
 
 ## What's already live, no setup required
 

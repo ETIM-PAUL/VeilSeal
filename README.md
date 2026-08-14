@@ -2,13 +2,21 @@
 
 # VeilSeal
 
-VeilSeal is a confidential auction platform built on **Flare Confidential Compute (FCC)**. Bidders commit an encrypted, sealed amount on-chain; a TEE only decrypts sealed bids after a listing's deadline, determines the winner, and signs the result for on-chain verification — so nobody, including VeilSeal itself, ever sees a bid amount before it's revealed.
+VeilSeal is a confidential sealed-bid auction platform built on Flare Confidential Compute. Bidders commit an encrypted amount on-chain; a TEE only decrypts it after the deadline, picks the winner, and signs the result for on-chain verification, so no one, not competitors, not the seller, not VeilSeal itself, ever sees a bid before it's revealed.
+
+It supports three ways to list an item: Standard (public listing, gated by an invite list or a TEE-verified signal score), Stealth (the entire listing: title, description, price, stays encrypted, discoverable only via a hashed ID shared directly with invitees), and Cipher (a skill-based challenge where participants predict a TEE-generated word arrangement instead of placing a bid). It also supports autonomous agentic bidding, where a wallet's private key is encrypted straight to the enclave so an agent can bid on a user's behalf without the key ever touching VeilSeal's servers.
+
+Everything is enforced by a real Flare Confidential Compute extension, the contract verifies the TEE's signature via `ecrecover` before trusting any result, rather than asking anyone to take VeilSeal's word for it.
+
+**[Demo video](https://app.screencastify.com/manage/videos/iXAkazqNssRWMT8L9KSU)** — a walkthrough of the full flow, including sealed bids, reveals, and all three listing types.
+
+**[Testing guide for judges](JUDGES.md)** — how to run VeilSeal against the live deployed contract with no setup, what's already on-chain, and how to spin up the TEE stack yourself if you want to list,bid and trigger a live reveal.
 
 ## The problem
 
 Open, on-chain bidding leaks information the instant a bid lands in a mempool or a contract's storage: competitors see your number and outbid you by the smallest possible margin, front-runners and searchers can act on it before it settles, and sellers can rig thresholds after the fact. Sealing a bid off-chain with a normal server just moves the trust problem — now you have to trust the operator not to peek. VeilSeal removes that operator entirely: bid amounts are only ever readable inside a TEE enclave, at the one moment they need to be, and the enclave proves what it did with an on-chain-verifiable signature instead of asking to be believed.
 
-## Selling points
+## Major points
 
 - **True sealed-bid auctions, not "hidden until you refresh."** Every bid is an on-chain hash commitment plus an ECIES ciphertext that only the TEE's private key can open. The plaintext amount never appears in calldata, contract storage, or any off-chain database — not even VeilSeal's own.
 - **On-chain verifiable reveals, no trusted operator.** After a listing's deadline, anyone can call `requestReveal`; the TEE decrypts every sealed bid for that listing, computes the winner, and signs a domain-separated result hash. `submitRevealResult` recovers the signer with `ecrecover` against a registered `teeAddress` and reverts if it doesn't match — the contract enforces the result, it doesn't take VeilSeal's word for it. Losing bid amounts are never reconstructed outside the enclave and never touch chain state.
@@ -34,11 +42,14 @@ VeilSeal's TEE backend ([`fce-veil-bid/`](fce-veil-bid/)) is a real **Flare Conf
 
 ## Technical execution
 
-- Deployed and exercised end-to-end on **Coston2** (Flare testnet): contract deployment, extension registration, TEE registration, and a full bid → seal → reveal cycle all run against real Flare infrastructure via the documented [`DEPLOYMENT_STEPS.md`](fce-veil-bid/DEPLOYMENT_STEPS.md) flow.
+- Deployed and exercised end-to-end on **Coston2** (Flare testnet), not mainnet or Songbird: contract deployment, extension registration, TEE registration, and a full bid → seal → reveal cycle all run against real Flare infrastructure via the documented [`DEPLOYMENT_STEPS.md`](fce-veil-bid/DEPLOYMENT_STEPS.md) flow.
+  - `VeilBidding` / `InstructionSender`: [`0x24ED14dD614B8D956eE81d2B73EF040989034980`](https://coston2-explorer.flare.network/address/0x24ED14dD614B8D956eE81d2B73EF040989034980)
+  - Registered `FlareTeeManager`: [`0x1a9C4A0f9D76c0b1D91d22E24E573a9b377618aE`](https://coston2-explorer.flare.network/address/0x1a9C4A0f9D76c0b1D91d22E24E573a9b377618aE)
+  - See [JUDGES.md](JUDGES.md) for how to verify these against on-chain state yourself.
 - Clear separation of concerns: Solidity contract for commitments/attestation verification, a Go TEE extension for the confidential logic, and a React/Vite frontend — each with its own tests (`contracts/test/CipherListing.t.sol`, [`fce-veil-bid/docs/testing.md`](fce-veil-bid/docs/testing.md)) and no component blindly trusting another without a signature check in between.
 - Item metadata (title, description, type, IPFS link, minimum bid) for standard listings is stored directly on-chain, so any client can render a listing from chain state alone with no off-chain indexer dependency for the core flow.
 
-## Evidence of new work (built during the program)
+## Everthing on VealSeal was built from scratch and during the hackathon period
 
 Starting from a cloned Flare Weather Insurance extension as scaffolding, the following was built from scratch:
 - The full `VeilBidding` sealed-bid contract and TEE extension (commitment scheme, BID/REVEAL handlers, on-chain signature verification)
@@ -49,8 +60,13 @@ Starting from a cloned Flare Weather Insurance extension as scaffolding, the fol
 - The live Operations feed and its on-chain activity aggregation
 - Reproducible-build tooling for the TEE's Docker image
 
+## Testing and feedback
+
+Testing has been informal, outside the team but not yet public: a small group of friends tried early listings through the ngrok channel. Their feedback directly shaped the product — **Cipher Listings exist because of that testing**, as a way to let people compete for an item by playing alittle game and not bidding with amount. No formal user acquisition, distribution, or pilot-partner conversations yet.
+
 ## What's next
 
-
-- Deployment of app for public testing and working on feedback.
+- Public deployment for wider testing, and iterating on the friend-group feedback loop that produced Cipher Listings.
+- Keeping the TEE stack ([`fce-veil-bid/`](fce-veil-bid/)) up continuously instead of demo-video-only, so reveals can be triggered live at any time.
 - Broadening the signal score's inputs beyond this contract's own history for stronger sybil resistance at cold-start.
+- Evaluating a Flare Mainnet deployment once the TEE stack has run stably on Coston2 for longer.

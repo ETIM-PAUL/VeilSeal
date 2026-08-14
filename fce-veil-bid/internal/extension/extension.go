@@ -41,9 +41,9 @@ type Extension struct {
 	instructionSender common.Address
 
 	// agentStore/agentWatcher back the v1 auto-bidding agent (one per wallet,
-	// invite-only listings only - see internal/agents). Left nil under the
-	// same conditions as chainClient; the /agent routes return a clear error
-	// instead of panicking if unconfigured.
+	// invite-only or score-gated standard listings - see internal/agents).
+	// Left nil under the same conditions as chainClient; the /agent routes
+	// return a clear error instead of panicking if unconfigured.
 	agentStore   *agents.Store
 	agentWatcher *agents.Watcher
 }

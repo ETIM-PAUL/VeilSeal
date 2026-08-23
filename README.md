@@ -66,8 +66,7 @@ Testing has been informal, outside the team but not yet public: a small group of
 
 ## What's next
 
-- Public deployment for wider testing, and iterating on the friend-group feedback loop that produced Cipher Listings.
-- Keeping the TEE stack ([`fce-veil-bid/`](fce-veil-bid/)) up continuously instead for wider testing and feedback, so reveals can be triggered live at any time.
+- Keeping the TEE stack ([`fce-veil-bid/`](fce-veil-bid/)) up continuously online (currently running from our local machine setup) for wider testing and feedback (iterating on the friend-group feedback loop that produced Cipher Listings), so reveals can be triggered live at any time.
 - Broadening the signal score's inputs beyond this contract's own history for stronger sybil resistance at cold-start.
 - Evaluating a Flare Mainnet deployment once the TEE stack has run stably on Coston2 for longer and Flare has FCC on mainnet.
 - Implement Vickrey auction, based on an informal feedback from my team.

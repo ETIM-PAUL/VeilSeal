@@ -10,7 +10,7 @@ Everything is enforced by a real Flare Confidential Compute extension, the contr
 
 **[Demo video](https://app.screencastify.com/manage/videos/iXAkazqNssRWMT8L9KSU)** — a walkthrough of the full flow, including sealed bids, reveals, and all three listing types.
 
-**[Testing guide for judges](JUDGES.md)** — how to run VeilSeal against the live deployed contract with no setup, what's already on-chain, and how to spin up the TEE stack yourself if you want to list,bid and trigger a live reveal.
+**[Testing live app](https://84a2-102-90-99-125.ngrok-free.app/)** — if you want to list,bid and trigger a live reveal.
 
 ## The problem
 

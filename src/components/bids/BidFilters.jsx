@@ -15,6 +15,8 @@ const STATUS_OPTIONS = [
 ];
 
 const SORT_OPTIONS = [
+  { value: "newest", label: "Newest First" },
+  { value: "oldest", label: "Oldest First" },
   { value: "deadline-asc", label: "Deadline: Soonest" },
   { value: "deadline-desc", label: "Deadline: Latest" },
 ];
@@ -48,7 +50,7 @@ export default function BidFilters({ search, onSearch, type, onType, status, onS
       <Select
         data={SORT_OPTIONS}
         value={sort}
-        onChange={(v) => onSort(v || "deadline-asc")}
+        onChange={(v) => onSort(v || "newest")}
         w={180}
       />
     </Group>

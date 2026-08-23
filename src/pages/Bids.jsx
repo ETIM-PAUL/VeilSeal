@@ -27,7 +27,7 @@ export default function Bids() {
   const [search, setSearch] = useState("");
   const [type, setType] = useState("All");
   const [status, setStatus] = useState("All");
-  const [sort, setSort] = useState("deadline-asc");
+  const [sort, setSort] = useState("newest");
   const [mineOnly, setMineOnly] = useState(false);
 
   const [newOpened, { open: openNew, close: closeNew }] = useDisclosure(false);
@@ -42,6 +42,10 @@ export default function Bids() {
       .filter((b) => !mineOnly || (address && b.creator?.toLowerCase() === address.toLowerCase()));
 
     return [...list].sort((a, b) => {
+      if (sort === "newest" || sort === "oldest") {
+        const diff = Number(a.onChainListingId) - Number(b.onChainListingId);
+        return sort === "newest" ? -diff : diff;
+      }
       const diff = new Date(a.deadline) - new Date(b.deadline);
       return sort === "deadline-asc" ? diff : -diff;
     });

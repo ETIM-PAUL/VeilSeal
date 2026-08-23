@@ -30,7 +30,8 @@ export default function CipherListings() {
   const filtered = useMemo(() => {
     return listings
       .filter((l) => l.title?.toLowerCase().includes(search.toLowerCase()))
-      .filter((l) => !mineOnly || (address && l.creator?.toLowerCase() === address.toLowerCase()));
+      .filter((l) => !mineOnly || (address && l.creator?.toLowerCase() === address.toLowerCase()))
+      .sort((a, b) => Number(b.onChainListingId) - Number(a.onChainListingId));
   }, [listings, search, mineOnly, address]);
 
   const guessTarget = listings.find((l) => l.id === guessListingId);

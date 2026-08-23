@@ -10,7 +10,7 @@ Everything is enforced by a real Flare Confidential Compute extension, the contr
 
 **[Demo video](https://app.screencastify.com/manage/videos/iXAkazqNssRWMT8L9KSU)** — a walkthrough of the full flow, including sealed bids, reveals, and all three listing types.
 
-**[Testing guide for judges](JUDGES.md)** — how to run VeilSeal against the live deployed contract with no setup, what's already on-chain, and how to spin up the TEE stack yourself if you want to list,bid and trigger a live reveal.
+**[Testing live app](https://84a2-102-90-99-125.ngrok-free.app/)** — if you want to list,bid and trigger a live reveal.
 
 ## The problem
 
@@ -66,8 +66,7 @@ Testing has been informal, outside the team but not yet public: a small group of
 
 ## What's next
 
-- Public deployment for wider testing, and iterating on the friend-group feedback loop that produced Cipher Listings.
-- Keeping the TEE stack ([`fce-veil-bid/`](fce-veil-bid/)) up continuously instead for wider testing and feedback, so reveals can be triggered live at any time.
+- Keeping the TEE stack ([`fce-veil-bid/`](fce-veil-bid/)) up continuously online (currently running from our local machine setup) for wider testing and feedback (iterating on the friend-group feedback loop that produced Cipher Listings), so reveals can be triggered live at any time.
 - Broadening the signal score's inputs beyond this contract's own history for stronger sybil resistance at cold-start.
 - Evaluating a Flare Mainnet deployment once the TEE stack has run stably on Coston2 for longer and Flare has FCC on mainnet.
 - Implement Vickrey auction, based on an informal feedback from my team.
